@@ -49,8 +49,18 @@ Compresión topológica mediante `ReplacementTransform` global hacia un tensor l
 Descompresión del estado escalar y retorno a geometría $\mathbb{R}^2$.
 * **`insertar_algebra(fuente_o_texto: str, tiempo_animacion: float = 1.0, tiempo_espera: float = 1.0) -> self`**
 Suspende la topología gráfica activa e invoca el pipeline simbólico. Acepta `.txt` o raw strings.
-* **`agregar_algebra_flotante(fuente_o_texto: str, posicion: str = "UL", remover_al_final: bool = False, tiempo_animacion: float = 1.0, tiempo_espera: float = 1.0) -> self`**
+* **`agregar_algebra_flotante(fuente_o_texto: str, posicion: str = "UL", remover_al_final: bool = False, tiempo_animacion: float = 1.0, tiempo_espera: float = 1.0, id: str | None = None) -> self`**
 Inyecta un HUD vectorial superpuesto (`aligned_edge` routing).
+
+### 2.4. Métodos de Purga y Ciclo de Vida (Lifecycle & Deletion)
+
+* **`eliminar_objeto(id: str | None = None, animacion: str = "FadeOut", tiempo_animacion: float = 1.0, tiempo_espera: float = 1.0) -> self`**
+Elimina un objeto del plano por su identificador asignado (`id`) o el último elemento generado si `id=None`. Si `id="todos"`, elimina todos los objetos visibles de la escena.
+*Tipos de animación admitidos:* `"FadeOut"`, `"Uncreate"` (des-traza curvas/líneas de forma inversa), `"Shrink"` / `"ShrinkToCenter"`.
+* **`remover_objeto(id: str | None = None, animacion: str = "FadeOut", tiempo_animacion: float = 1.0, tiempo_espera: float = 1.0) -> self`**
+Alias sintáctico de `eliminar_objeto`.
+* **`desvanecer_todo(animacion: str = "FadeOut", tiempo_animacion: float = 1.5, tiempo_espera: float = 1.0) -> self`**
+Provoca la finalización suave de la escena disolviendo todos los mobjects a negro (*muerte* de la animación).
 
 ---
 
@@ -67,6 +77,7 @@ Inyecta un HUD vectorial superpuesto (`aligned_edge` routing).
 * **v5.0 - HUD Vectorial (Overlay Analytics):** Implementación de álgebra persistente en esquinas absolutas del viewport.
 * **v6.0 - Optimizaciones Topológicas:** Bounding boxes calculados vía `scipy.optimize`, y limitadores perimetrales (Overscan + FOV Padding) para prevención algorítmica de clipping geométrico.
 * **v7.0 - Interpolación Espacial Paramétrica:** Inyección de un `ValueTracker` maestro paramétrico ($\alpha \in [0,1]$) capaz de manejar polimorfismo de coordenadas. Transforma las primitivas de acotación (líneas punteadas y llaves) en entidades "curve-aware" (que detectan e interpolan su posición vertical dinámicamente rastreando la función principal).
+* **v8.0 - Ciclo de Vida y Purga de Entidades:** Implementación del subsistema de registro de mobjects por identificador (`id`), métodos de eliminación atómica (`eliminar_objeto`, `remover_objeto`, `desvanecer_todo`) con efectos 'Uncreate', 'FadeOut' y 'Shrink', y soporte nativo para inicialización de escena desde etiquetas LaTeX (`iniciar_con_texto`).
 
 ---
 

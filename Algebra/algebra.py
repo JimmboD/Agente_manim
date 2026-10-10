@@ -105,3 +105,5 @@ def procesar_algebra_flotante(escena, fuente, ancho_camara, posicion="UL", remov
         
     if remover and last_label is not None:
         escena.play(FadeOut(last_label), run_time=0.5)
+        return None
+    return last_label
