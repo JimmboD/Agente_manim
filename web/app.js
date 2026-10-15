@@ -37,7 +37,7 @@ const TEMPLATES = {
 from Planos.generar_plano import AnimadorGrafico
 
 # ==========================================
-# CONFIGURACIÓN DE LA ANIMACIÓN
+# CONFIGURACIÓN DE LA ANIMACIÓN (REGLA FALSA)
 # ==========================================
 def f_objetivo(x: float) -> float:
     return math.exp(x) - 3 * (x**2)
@@ -47,6 +47,44 @@ A_INICIAL = 0.0
 B_INICIAL = 1.5
 TOLERANCIA = 0.0001
 MAX_ITERACIONES = 4
+
+# ==========================================
+# CONFIGURACIÓN DE TIEMPOS DE ANIMACIÓN (POR PASOS)
+# NOTA: Los siguientes valores representan el ritmo estándar predeterminado.
+# Deben mantenerse con estos valores predefinidos y modificarse ÚNICAMENTE 
+# cuando el usuario o una indicación explícita lo solicite.
+# ==========================================
+# Paso 0: Puntos iniciales del intervalo [a, b]
+T_PUNTOS_INI_ANIM = 0.5
+T_PUNTOS_INI_ESPERA = 0.1
+
+# Paso 1: Trazado de la recta secante inicial (primera iteración)
+T_SECANTE_INI_ANIM = 1.0
+T_SECANTE_INI_ESPERA = 1.0
+
+# Paso 2: Despliegue de cálculos algebraicos en HUD
+T_HUD_ANIM = 1.0
+T_HUD_ESPERA = 1.0
+
+# Paso 3: Proyección del punto raíz al eje X (marca y línea guía)
+T_PROY_PUNTO_ANIM = 0.5
+T_PROY_PUNTO_ESPERA = 1.0
+T_PROY_LINEA_ANIM = 0.8
+T_PROY_LINEA_ESPERA = 1.0
+
+# Paso 4: Limpieza de guías visuales temporales (línea punteada y punto)
+T_LIMPIEZA_LINEA_ANIM = 0.5
+T_LIMPIEZA_LINEA_ESPERA = 0.1
+T_LIMPIEZA_PUNTO_ANIM = 0.5
+T_LIMPIEZA_PUNTO_ESPERA = 0.2
+
+# Paso 5: Convergencia paramétrica (la secante y punto conducen a la nueva raíz)
+T_CONVERGENCIA_ANIM = 2.0
+T_CONVERGENCIA_ESPERA = 1.0
+
+# Paso 6: Cierre y desvanecimiento final de la escena
+T_FINAL_ANIM = 2.0
+T_FINAL_ESPERA = 1.0
 # ==========================================
 
 def generar_secante(x0, y0, x1, y1):
@@ -64,8 +102,8 @@ if __name__ == "__main__":
     c = b - fb * ((b - a) / (fb - fa))
     
     # ESTADO INICIAL
-    escena.agregar_punto(a, fa, color="#FFFF00", id="punto_A", tiempo_animacion=0.5, tiempo_espera=0.1)
-    escena.agregar_punto(b, fb, color="#FFFF00", id="punto_B", tiempo_animacion=0.5, tiempo_espera=0.1)
+    escena.agregar_punto(a, fa, color="#FFFF00", id="punto_A", tiempo_animacion=T_PUNTOS_INI_ANIM, tiempo_espera=T_PUNTOS_INI_ESPERA)
+    escena.agregar_punto(b, fb, color="#FFFF00", id="punto_B", tiempo_animacion=T_PUNTOS_INI_ANIM, tiempo_espera=T_PUNTOS_INI_ESPERA)
     
     error = 100.0
     i = 1
@@ -76,7 +114,10 @@ if __name__ == "__main__":
         
         # 1. DIBUJAR SECANTE INICIAL (Solo en la primera iteración)
         if i == 1:
-            escena.agregar_funcion(generar_secante(a, fa, b, fb), color="#FFFF00", id="secante", tiempo_animacion=1.0)
+            escena.agregar_funcion(
+                generar_secante(a, fa, b, fb), color="#FFFF00", id="secante", 
+                tiempo_animacion=T_SECANTE_INI_ANIM, tiempo_espera=T_SECANTE_INI_ESPERA
+            )
         
         # 2. CÁLCULO ALGEBRAICO Y VISUALIZACIÓN DE ERROR
         str_error = f"{error:.4f}\\\\%" if i > 1 else "\\\\text{N/A}"
@@ -86,18 +127,31 @@ if __name__ == "__main__":
         $$x_{{{i}}} \\\\approx {c:.4f}$$
         $$\\\\text{{Error: }} {str_error}$$
         """
-        escena.agregar_algebra_flotante(texto_hud, posicion="UL", remover_al_final=True, tiempo_animacion=1.0, tiempo_espera=1.0)
+        escena.agregar_algebra_flotante(
+            texto_hud, posicion="UL", remover_al_final=True, 
+            tiempo_animacion=T_HUD_ANIM, tiempo_espera=T_HUD_ESPERA
+        )
         
         # 3. PROYECCIÓN Y MARCA DEL PUNTO RAÍZ BLANCO
-        escena.agregar_punto(c, 0.0, color="#FFFFFF", label=False, id="punto_raiz", tiempo_animacion=0.5)
+        escena.agregar_punto(
+            c, 0.0, color="#FFFFFF", label=False, id="punto_raiz", 
+            tiempo_animacion=T_PROY_PUNTO_ANIM, tiempo_espera=T_PROY_PUNTO_ESPERA
+        )
         escena.animar_linea_punteada(
             x1_ini=c, x1_fin=c, x2_ini=c, x2_fin=c, y1_ini=0.0, y2_ini=f_objetivo, 
-            color="#FFFFFF", id="proy_c", tiempo_animacion=0.8
+            color="#FFFFFF", id="proy_c", 
+            tiempo_animacion=T_PROY_LINEA_ANIM, tiempo_espera=T_PROY_LINEA_ESPERA
         )
         
         # 4. ELIMINACIÓN DEL PUNTO BLANCO Y LA LÍNEA ANTES DEL MOVIMIENTO DE LA RECTA
-        escena.eliminar_objeto(id="proy_c", animacion="Uncreate", tiempo_animacion=0.5, tiempo_espera=0.1)
-        escena.eliminar_objeto(id="punto_raiz", animacion="FadeOut", tiempo_animacion=0.5, tiempo_espera=0.2)
+        escena.eliminar_objeto(
+            id="proy_c", animacion="Uncreate", 
+            tiempo_animacion=T_LIMPIEZA_LINEA_ANIM, tiempo_espera=T_LIMPIEZA_LINEA_ESPERA
+        )
+        escena.eliminar_objeto(
+            id="punto_raiz", animacion="FadeOut", 
+            tiempo_animacion=T_LIMPIEZA_PUNTO_ANIM, tiempo_espera=T_LIMPIEZA_PUNTO_ESPERA
+        )
         
         # 5. CÁLCULO DE SIGUIENTE ITERACIÓN Y MOVIMIENTO PARAMÉTRICO
         if fa * fc < 0:
@@ -109,7 +163,7 @@ if __name__ == "__main__":
                 funcion=f_objetivo, x_fijo=a, 
                 x_movil_ini=b_viejo, x_movil_fin=b,
                 id_secante="secante", id_punto_curva="punto_B", id_punto_raiz="punto_raiz",
-                tiempo_animacion=2.0, tiempo_espera=1.0
+                tiempo_animacion=T_CONVERGENCIA_ANIM, tiempo_espera=T_CONVERGENCIA_ESPERA
             )
         else:
             a_viejo = a
@@ -120,7 +174,7 @@ if __name__ == "__main__":
                 funcion=f_objetivo, x_fijo=b, 
                 x_movil_ini=a_viejo, x_movil_fin=a,
                 id_secante="secante", id_punto_curva="punto_A", id_punto_raiz="punto_raiz",
-                tiempo_animacion=2.0, tiempo_espera=1.0
+                tiempo_animacion=T_CONVERGENCIA_ANIM, tiempo_espera=T_CONVERGENCIA_ESPERA
             )
         
         # 6. ACTUALIZACIÓN DE VARIABLES Y ERROR PARA EL BUCLE
@@ -128,7 +182,7 @@ if __name__ == "__main__":
         c = c_nuevo
         i += 1
         
-    escena.desvanecer_todo(tiempo_animacion=2.0)
+    escena.desvanecer_todo(tiempo_animacion=T_FINAL_ANIM, tiempo_espera=T_FINAL_ESPERA)
     escena.render(previsualizar=True)
 `,
 
@@ -146,6 +200,40 @@ A_INICIAL = 0.0
 B_INICIAL = 1.5
 TOLERANCIA = 0.0001
 MAX_ITERACIONES = 4
+
+# ==========================================
+# CONFIGURACIÓN DE TIEMPOS DE ANIMACIÓN (POR PASOS)
+# NOTA: Los siguientes valores representan el ritmo estándar predeterminado.
+# Deben mantenerse con estos valores predefinidos y modificarse ÚNICAMENTE 
+# cuando el usuario o una indicación explícita lo solicite.
+# ==========================================
+# Paso 0: Puntos iniciales del intervalo [a, b]
+T_PUNTOS_INI_ANIM = 0.5
+T_PUNTOS_INI_ESPERA = 0.1
+
+# Paso 1: Despliegue de cálculos algebraicos en HUD
+T_HUD_ANIM = 1.0
+T_HUD_ESPERA = 1.0
+
+# Paso 2: Proyección del punto medio al eje X (marca y línea guía)
+T_PROY_PUNTO_ANIM = 0.5
+T_PROY_PUNTO_ESPERA = 1.0
+T_PROY_LINEA_ANIM = 0.8
+T_PROY_LINEA_ESPERA = 1.0
+
+# Paso 3: Limpieza de guías visuales temporales (línea punteada y punto)
+T_LIMPIEZA_LINEA_ANIM = 0.5
+T_LIMPIEZA_LINEA_ESPERA = 0.1
+T_LIMPIEZA_PUNTO_ANIM = 0.5
+T_LIMPIEZA_PUNTO_ESPERA = 0.2
+
+# Paso 4: Traslación del extremo sobre la curva hacia la nueva aproximación
+T_MOVIMIENTO_CURVA_ANIM = 1.5
+T_MOVIMIENTO_CURVA_ESPERA = 1.0
+
+# Paso 5: Cierre y desvanecimiento final de la escena
+T_FINAL_ANIM = 2.0
+T_FINAL_ESPERA = 1.0
 # ==========================================
 
 if __name__ == "__main__":
@@ -159,8 +247,8 @@ if __name__ == "__main__":
     fa, fb = f_objetivo(a), f_objetivo(b)
     
     # ESTADO INICIAL: Intervalo [a, b]
-    escena.agregar_punto(a, fa, color="#FFFF00", id="punto_A", tiempo_animacion=0.5, tiempo_espera=0.1)
-    escena.agregar_punto(b, fb, color="#FFFF00", id="punto_B", tiempo_animacion=0.5, tiempo_espera=0.1)
+    escena.agregar_punto(a, fa, color="#FFFF00", id="punto_A", tiempo_animacion=T_PUNTOS_INI_ANIM, tiempo_espera=T_PUNTOS_INI_ESPERA)
+    escena.agregar_punto(b, fb, color="#FFFF00", id="punto_B", tiempo_animacion=T_PUNTOS_INI_ANIM, tiempo_espera=T_PUNTOS_INI_ESPERA)
     
     error = 100.0
     c_prev = a
@@ -185,18 +273,31 @@ if __name__ == "__main__":
         $$f(c_{{{i}}}) \\\\approx {fc:.4f}$$
         $$\\\\text{{Error: }} {str_error}$$
         """
-        escena.agregar_algebra_flotante(texto_hud, posicion="UL", remover_al_final=True, tiempo_animacion=1.0, tiempo_espera=1.0)
+        escena.agregar_algebra_flotante(
+            texto_hud, posicion="UL", remover_al_final=True, 
+            tiempo_animacion=T_HUD_ANIM, tiempo_espera=T_HUD_ESPERA
+        )
         
         # 3. PROYECCIÓN Y MARCA DEL PUNTO MEDIO EN EL EJE X
-        escena.agregar_punto(c, 0.0, color="#FFFFFF", label=False, id="punto_c", tiempo_animacion=0.5)
+        escena.agregar_punto(
+            c, 0.0, color="#FFFFFF", label=False, id="punto_c", 
+            tiempo_animacion=T_PROY_PUNTO_ANIM, tiempo_espera=T_PROY_PUNTO_ESPERA
+        )
         escena.animar_linea_punteada(
             x1_ini=c, x1_fin=c, x2_ini=c, x2_fin=c, y1_ini=0.0, y2_ini=f_objetivo, 
-            color="#FFFFFF", id="proy_c", tiempo_animacion=0.8
+            color="#FFFFFF", id="proy_c", 
+            tiempo_animacion=T_PROY_LINEA_ANIM, tiempo_espera=T_PROY_LINEA_ESPERA
         )
         
         # 4. ELIMINACIÓN DE LA PROYECCIÓN TEMPORAL
-        escena.eliminar_objeto(id="proy_c", animacion="Uncreate", tiempo_animacion=0.5, tiempo_espera=0.1)
-        escena.eliminar_objeto(id="punto_c", animacion="FadeOut", tiempo_animacion=0.5, tiempo_espera=0.2)
+        escena.eliminar_objeto(
+            id="proy_c", animacion="Uncreate", 
+            tiempo_animacion=T_LIMPIEZA_LINEA_ANIM, tiempo_espera=T_LIMPIEZA_LINEA_ESPERA
+        )
+        escena.eliminar_objeto(
+            id="punto_c", animacion="FadeOut", 
+            tiempo_animacion=T_LIMPIEZA_PUNTO_ANIM, tiempo_espera=T_LIMPIEZA_PUNTO_ESPERA
+        )
         
         # 5. ACTUALIZACIÓN DE LÍMITES Y TRASLACIÓN SOBRE LA CURVA
         if fa * fc < 0:
@@ -206,7 +307,7 @@ if __name__ == "__main__":
             escena.animar_punto_sobre_curva(
                 x_inicio=b_viejo, x_fin=b, funcion=f_objetivo, 
                 color="#FFFF00", id="punto_B", 
-                tiempo_animacion=1.5, tiempo_espera=1.0
+                tiempo_animacion=T_MOVIMIENTO_CURVA_ANIM, tiempo_espera=T_MOVIMIENTO_CURVA_ESPERA
             )
         else:
             a_viejo = a
@@ -215,13 +316,13 @@ if __name__ == "__main__":
             escena.animar_punto_sobre_curva(
                 x_inicio=a_viejo, x_fin=a, funcion=f_objetivo, 
                 color="#FFFF00", id="punto_A", 
-                tiempo_animacion=1.5, tiempo_espera=1.0
+                tiempo_animacion=T_MOVIMIENTO_CURVA_ANIM, tiempo_espera=T_MOVIMIENTO_CURVA_ESPERA
             )
             
         c_prev = c
         i += 1
         
-    escena.desvanecer_todo(tiempo_animacion=2.0)
+    escena.desvanecer_todo(tiempo_animacion=T_FINAL_ANIM, tiempo_espera=T_FINAL_ESPERA)
     escena.render(previsualizar=True)
 `,
 
@@ -241,6 +342,44 @@ LABEL_FUNCION = r"$$f(x) = e^x - 3x^2$$"
 X_INICIAL = 1.5
 TOLERANCIA = 0.0001
 MAX_ITERACIONES = 5
+
+# ==========================================
+# CONFIGURACIÓN DE TIEMPOS DE ANIMACIÓN (POR PASOS)
+# NOTA: Los siguientes valores representan el ritmo estándar predeterminado.
+# Deben mantenerse con estos valores predefinidos y modificarse ÚNICAMENTE 
+# cuando el usuario o una indicación explícita lo solicite.
+# ==========================================
+# Paso 0: Punto ancla inicial sobre la curva
+T_PUNTO_INI_ANIM = 0.5
+T_PUNTO_INI_ESPERA = 0.1
+
+# Paso 1: Trazado de la recta tangente inicial (primera iteración)
+T_TANGENTE_INI_ANIM = 1.0
+T_TANGENTE_INI_ESPERA = 1.0
+
+# Paso 2: Despliegue de cálculos algebraicos en HUD
+T_HUD_ANIM = 1.0
+T_HUD_ESPERA = 1.0
+
+# Paso 3: Proyección de la raíz estimada al eje X (marca y línea guía)
+T_PROY_PUNTO_ANIM = 0.5
+T_PROY_PUNTO_ESPERA = 1.0
+T_PROY_LINEA_ANIM = 0.8
+T_PROY_LINEA_ESPERA = 1.0
+
+# Paso 4: Transición paralela (rotación de tangente y traslación de punto sobre la curva)
+T_TRANSICION_PARALELO_ANIM = 2.0
+T_TRANSICION_PARALELO_ESPERA = 1.0
+
+# Paso 5: Limpieza de guías visuales temporales (línea punteada y punto)
+T_LIMPIEZA_LINEA_ANIM = 0.5
+T_LIMPIEZA_LINEA_ESPERA = 0.1
+T_LIMPIEZA_PUNTO_ANIM = 0.5
+T_LIMPIEZA_PUNTO_ESPERA = 0.2
+
+# Paso 6: Cierre y desvanecimiento final de la escena
+T_FINAL_ANIM = 2.0
+T_FINAL_ESPERA = 1.0
 # ==========================================
 
 def generar_tangente(x0, y0, m):
@@ -258,7 +397,10 @@ if __name__ == "__main__":
     y_act = f_objetivo(x_act)
     
     # 1. ESTADO INICIAL: Punto ancla en la curva (Color Amarillo)
-    escena.agregar_punto(x_act, y_act, color="#FFFF00", id="punto_n", tiempo_animacion=0.5, tiempo_espera=0.1)
+    escena.agregar_punto(
+        x_act, y_act, color="#FFFF00", id="punto_n", 
+        tiempo_animacion=T_PUNTO_INI_ANIM, tiempo_espera=T_PUNTO_INI_ESPERA
+    )
     
     error = 100.0
     i = 1
@@ -271,7 +413,10 @@ if __name__ == "__main__":
         
         # 2. TRAZADO DE LA TANGENTE (Solo se instancia en iteración 1, luego se transforma)
         if i == 1:
-            escena.agregar_funcion(generar_tangente(x_act, y_act, m_act), color="#FFFF00", id="tangente", tiempo_animacion=1.0)
+            escena.agregar_funcion(
+                generar_tangente(x_act, y_act, m_act), color="#FFFF00", id="tangente", 
+                tiempo_animacion=T_TANGENTE_INI_ANIM, tiempo_espera=T_TANGENTE_INI_ESPERA
+            )
             
         # 3. CÁLCULO ALGEBRAICO Y VISUALIZACIÓN EN HUD
         str_error = f"{error:.4f}\\\\%" if i > 1 else "\\\\text{N/A}"
@@ -281,19 +426,26 @@ if __name__ == "__main__":
         $$x_{{{i}}} \\\\approx {x_next:.4f}$$
         $$\\\\text{{Error: }} {str_error}$$
         """
-        escena.agregar_algebra_flotante(texto_hud, posicion="UL", remover_al_final=True, tiempo_animacion=1.0, tiempo_espera=1.0)
+        escena.agregar_algebra_flotante(
+            texto_hud, posicion="UL", remover_al_final=True, 
+            tiempo_animacion=T_HUD_ANIM, tiempo_espera=T_HUD_ESPERA
+        )
         
         # 4. MARCA DE LA RAÍZ PROYECTADA EN EL EJE X (Blanco)
-        escena.agregar_punto(x_next, 0.0, color="#FFFFFF", label=False, id="punto_corte", tiempo_animacion=0.5)
+        escena.agregar_punto(
+            x_next, 0.0, color="#FFFFFF", label=False, id="punto_corte", 
+            tiempo_animacion=T_PROY_PUNTO_ANIM, tiempo_espera=T_PROY_PUNTO_ESPERA
+        )
         escena.animar_linea_punteada(
             x1_ini=x_next, x1_fin=x_next, x2_ini=x_next, x2_fin=x_next, y1_ini=0.0, y2_ini=f_objetivo, 
-            color="#FFFFFF", id="proy_c", tiempo_animacion=0.8
+            color="#FFFFFF", id="proy_c", 
+            tiempo_animacion=T_PROY_LINEA_ANIM, tiempo_espera=T_PROY_LINEA_ESPERA
         )
         
         # 5. MOVIMIENTO EN PARALELO (Antes de que la proyección desaparezca)
         m_next = f_derivada(x_next)
         
-        with escena.bloque_paralelo(tiempo_animacion=2.0, tiempo_espera=1.0):
+        with escena.bloque_paralelo(tiempo_animacion=T_TRANSICION_PARALELO_ANIM, tiempo_espera=T_TRANSICION_PARALELO_ESPERA):
             # La tangente pivotea y "rueda" sobre la curva hasta la nueva pendiente
             escena.transformar_objeto(
                 origen="tangente", tipo_destino="funcion", funcion=generar_tangente(x_next, y_next, m_next), 
@@ -306,8 +458,14 @@ if __name__ == "__main__":
             )
             
         # 6. ELIMINACIÓN DE GUÍAS VISUALES
-        escena.eliminar_objeto(id="proy_c", animacion="Uncreate", tiempo_animacion=0.5, tiempo_espera=0.1)
-        escena.eliminar_objeto(id="punto_corte", animacion="FadeOut", tiempo_animacion=0.5, tiempo_espera=0.2)
+        escena.eliminar_objeto(
+            id="proy_c", animacion="Uncreate", 
+            tiempo_animacion=T_LIMPIEZA_LINEA_ANIM, tiempo_espera=T_LIMPIEZA_LINEA_ESPERA
+        )
+        escena.eliminar_objeto(
+            id="punto_corte", animacion="FadeOut", 
+            tiempo_animacion=T_LIMPIEZA_PUNTO_ANIM, tiempo_espera=T_LIMPIEZA_PUNTO_ESPERA
+        )
         
         # 7. ACTUALIZACIÓN DE VARIABLES Y ERROR
         error = abs((x_next - x_act) / x_next) * 100 if x_next != 0 else 100
@@ -315,7 +473,7 @@ if __name__ == "__main__":
         y_act = y_next
         i += 1
         
-    escena.desvanecer_todo(tiempo_animacion=2.0)
+    escena.desvanecer_todo(tiempo_animacion=T_FINAL_ANIM, tiempo_espera=T_FINAL_ESPERA)
     escena.render(previsualizar=True)
 `,
 

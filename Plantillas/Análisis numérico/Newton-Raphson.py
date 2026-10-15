@@ -14,6 +14,44 @@ LABEL_FUNCION = r"$$f(x) = e^x - 3x^2$$"
 X_INICIAL = 1.5
 TOLERANCIA = 0.0001
 MAX_ITERACIONES = 5
+
+# ==========================================
+# CONFIGURACIÓN DE TIEMPOS DE ANIMACIÓN (POR PASOS)
+# NOTA: Los siguientes valores representan el ritmo estándar predeterminado.
+# Deben mantenerse con estos valores predefinidos y modificarse ÚNICAMENTE 
+# cuando el usuario o una indicación explícita lo solicite.
+# ==========================================
+# Paso 0: Punto ancla inicial sobre la curva
+T_PUNTO_INI_ANIM = 0.5
+T_PUNTO_INI_ESPERA = 0.1
+
+# Paso 1: Trazado de la recta tangente inicial (primera iteración)
+T_TANGENTE_INI_ANIM = 1.0
+T_TANGENTE_INI_ESPERA = 1.0
+
+# Paso 2: Despliegue de cálculos algebraicos en HUD
+T_HUD_ANIM = 1.0
+T_HUD_ESPERA = 1.0
+
+# Paso 3: Proyección de la raíz estimada al eje X (marca y línea guía)
+T_PROY_PUNTO_ANIM = 0.5
+T_PROY_PUNTO_ESPERA = 1.0
+T_PROY_LINEA_ANIM = 0.8
+T_PROY_LINEA_ESPERA = 1.0
+
+# Paso 4: Transición paralela (rotación de tangente y traslación de punto sobre la curva)
+T_TRANSICION_PARALELO_ANIM = 2.0
+T_TRANSICION_PARALELO_ESPERA = 1.0
+
+# Paso 5: Limpieza de guías visuales temporales (línea punteada y punto)
+T_LIMPIEZA_LINEA_ANIM = 0.5
+T_LIMPIEZA_LINEA_ESPERA = 0.1
+T_LIMPIEZA_PUNTO_ANIM = 0.5
+T_LIMPIEZA_PUNTO_ESPERA = 0.2
+
+# Paso 6: Cierre y desvanecimiento final de la escena
+T_FINAL_ANIM = 2.0
+T_FINAL_ESPERA = 1.0
 # ==========================================
 
 def generar_tangente(x0, y0, m):
@@ -31,7 +69,10 @@ if __name__ == "__main__":
     y_act = f_objetivo(x_act)
     
     # 1. ESTADO INICIAL: Punto ancla en la curva (Color Amarillo)
-    escena.agregar_punto(x_act, y_act, color="#FFFF00", id="punto_n", tiempo_animacion=0.5, tiempo_espera=0.1)
+    escena.agregar_punto(
+        x_act, y_act, color="#FFFF00", id="punto_n", 
+        tiempo_animacion=T_PUNTO_INI_ANIM, tiempo_espera=T_PUNTO_INI_ESPERA
+    )
     
     error = 100.0
     i = 1
@@ -44,7 +85,10 @@ if __name__ == "__main__":
         
         # 2. TRAZADO DE LA TANGENTE (Solo se instancia en iteración 1, luego se transforma)
         if i == 1:
-            escena.agregar_funcion(generar_tangente(x_act, y_act, m_act), color="#FFFF00", id="tangente", tiempo_animacion=1.0)
+            escena.agregar_funcion(
+                generar_tangente(x_act, y_act, m_act), color="#FFFF00", id="tangente", 
+                tiempo_animacion=T_TANGENTE_INI_ANIM, tiempo_espera=T_TANGENTE_INI_ESPERA
+            )
             
         # 3. CÁLCULO ALGEBRAICO Y VISUALIZACIÓN EN HUD
         str_error = f"{error:.4f}\\%" if i > 1 else "\\text{N/A}"
@@ -54,19 +98,26 @@ if __name__ == "__main__":
         $$x_{{{i}}} \\approx {x_next:.4f}$$
         $$\\text{{Error: }} {str_error}$$
         """
-        escena.agregar_algebra_flotante(texto_hud, posicion="UL", remover_al_final=True, tiempo_animacion=1.0, tiempo_espera=1.0)
+        escena.agregar_algebra_flotante(
+            texto_hud, posicion="UL", remover_al_final=True, 
+            tiempo_animacion=T_HUD_ANIM, tiempo_espera=T_HUD_ESPERA
+        )
         
         # 4. MARCA DE LA RAÍZ PROYECTADA EN EL EJE X (Blanco)
-        escena.agregar_punto(x_next, 0.0, color="#FFFFFF", label=False, id="punto_corte", tiempo_animacion=0.5)
+        escena.agregar_punto(
+            x_next, 0.0, color="#FFFFFF", label=False, id="punto_corte", 
+            tiempo_animacion=T_PROY_PUNTO_ANIM, tiempo_espera=T_PROY_PUNTO_ESPERA
+        )
         escena.animar_linea_punteada(
             x1_ini=x_next, x1_fin=x_next, x2_ini=x_next, x2_fin=x_next, y1_ini=0.0, y2_ini=f_objetivo, 
-            color="#FFFFFF", id="proy_c", tiempo_animacion=0.8
+            color="#FFFFFF", id="proy_c", 
+            tiempo_animacion=T_PROY_LINEA_ANIM, tiempo_espera=T_PROY_LINEA_ESPERA
         )
         
         # 5. MOVIMIENTO EN PARALELO (Antes de que la proyección desaparezca)
         m_next = f_derivada(x_next)
         
-        with escena.bloque_paralelo(tiempo_animacion=2.0, tiempo_espera=1.0):
+        with escena.bloque_paralelo(tiempo_animacion=T_TRANSICION_PARALELO_ANIM, tiempo_espera=T_TRANSICION_PARALELO_ESPERA):
             # La tangente pivotea y "rueda" sobre la curva hasta la nueva pendiente
             escena.transformar_objeto(
                 origen="tangente", tipo_destino="funcion", funcion=generar_tangente(x_next, y_next, m_next), 
@@ -79,8 +130,14 @@ if __name__ == "__main__":
             )
             
         # 6. ELIMINACIÓN DE GUÍAS VISUALES
-        escena.eliminar_objeto(id="proy_c", animacion="Uncreate", tiempo_animacion=0.5, tiempo_espera=0.1)
-        escena.eliminar_objeto(id="punto_corte", animacion="FadeOut", tiempo_animacion=0.5, tiempo_espera=0.2)
+        escena.eliminar_objeto(
+            id="proy_c", animacion="Uncreate", 
+            tiempo_animacion=T_LIMPIEZA_LINEA_ANIM, tiempo_espera=T_LIMPIEZA_LINEA_ESPERA
+        )
+        escena.eliminar_objeto(
+            id="punto_corte", animacion="FadeOut", 
+            tiempo_animacion=T_LIMPIEZA_PUNTO_ANIM, tiempo_espera=T_LIMPIEZA_PUNTO_ESPERA
+        )
         
         # 7. ACTUALIZACIÓN DE VARIABLES Y ERROR
         error = abs((x_next - x_act) / x_next) * 100 if x_next != 0 else 100
@@ -88,5 +145,5 @@ if __name__ == "__main__":
         y_act = y_next
         i += 1
         
-    escena.desvanecer_todo(tiempo_animacion=2.0)
+    escena.desvanecer_todo(tiempo_animacion=T_FINAL_ANIM, tiempo_espera=T_FINAL_ESPERA)
     escena.render(previsualizar=True)

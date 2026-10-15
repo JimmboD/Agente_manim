@@ -177,3 +177,80 @@ if __name__ == "__main__":
     escena.render(previsualizar=True)
 
 ```
+
+---
+
+## 5. Control de Tiempos y Ritmo en Plantillas Numéricas (Pacing por Pasos)
+
+Las plantillas de algoritmos numéricos ubicadas en `Plantillas/Análisis numérico/` (`Bisección.py`, `Regla falsa.py` y `Newton-Raphson.py`) cuentan con un bloque de constantes explícitas para controlar de forma granular la duración de animación (`anim`) y el tiempo de reposo (`espera`) de cada fase del algoritmo.
+
+> [!IMPORTANT]
+> **Directiva de Ritmo Predefinido (Agent & User Rule):**
+> Todos los valores de tiempo declarados en la cabecera de las plantillas representan el **ritmo estándar predefinido** de la animación (equivalente a los tiempos base del motor). **NO deben modificarse por iniciativa propia.** Únicamente deben alterarse cuando el usuario o la especificación del requerimiento incluya una indicación explícita (por ejemplo: *"haz el paso del cálculo más lento"*, *"acelera las transiciones"*, *"dale 3 segundos al HUD para leerlo con calma"*, etc.).
+
+---
+
+### 5.1. Plantilla: Método de Bisección (`Bisección.py`)
+
+Esta plantilla divide iterativamente el intervalo $[a, b]$ a la mitad y traslada el extremo respectivo sobre la curva.
+
+| Paso | Constante de Animación | Constante de Espera | Valor Predefinido (`anim` / `espera`) | Descripción Técnica |
+| :--- | :--- | :--- | :--- | :--- |
+| **Paso 0: Puntos iniciales** | `T_PUNTOS_INI_ANIM` | `T_PUNTOS_INI_ESPERA` | `0.5s` / `0.1s` | Creación de los puntos ancla $A(a, f(a))$ y $B(b, f(b))$. |
+| **Paso 1: HUD Algebraico** | `T_HUD_ANIM` | `T_HUD_ESPERA` | `1.0s` / `1.0s` | Despliegue de la tarjeta LaTeX superior izquierda con la iteración, fórmula de $c_i$, $f(c_i)$ y el error relativo. |
+| **Paso 2: Proyección punto $c$** | `T_PROY_PUNTO_ANIM`<br>`T_PROY_LINEA_ANIM` | `T_PROY_PUNTO_ESPERA`<br>`T_PROY_LINEA_ESPERA` | `0.5s` / `1.0s`<br>`0.8s` / `1.0s` | Marca del punto medio $c$ sobre el eje X y trazado de la línea discontinua hacia la curva $f(c)$. |
+| **Paso 3: Limpieza de guías** | `T_LIMPIEZA_LINEA_ANIM`<br>`T_LIMPIEZA_PUNTO_ANIM` | `T_LIMPIEZA_LINEA_ESPERA`<br>`T_LIMPIEZA_PUNTO_ESPERA` | `0.5s` / `0.1s`<br>`0.5s` / `0.2s` | `Uncreate` de la línea vertical y `FadeOut` del punto blanco antes del movimiento de la cota. |
+| **Paso 4: Movimiento sobre curva** | `T_MOVIMIENTO_CURVA_ANIM` | `T_MOVIMIENTO_CURVA_ESPERA` | `1.5s` / `1.0s` | Desplazamiento cinemático (`animar_punto_sobre_curva`) del extremo descartado hacia la nueva posición $c$. |
+| **Paso 5: Cierre de escena** | `T_FINAL_ANIM` | `T_FINAL_ESPERA` | `2.0s` / `1.0s` | Disolución general suave (`desvanecer_todo`) al término de las iteraciones. |
+
+---
+
+### 5.2. Plantilla: Método de Regla Falsa (`Regla falsa.py`)
+
+Esta plantilla traza una recta secante entre los extremos y resuelve la raíz analítica por interpolación lineal.
+
+| Paso | Constante de Animación | Constante de Espera | Valor Predefinido (`anim` / `espera`) | Descripción Técnica |
+| :--- | :--- | :--- | :--- | :--- |
+| **Paso 0: Puntos iniciales** | `T_PUNTOS_INI_ANIM` | `T_PUNTOS_INI_ESPERA` | `0.5s` / `0.1s` | Creación de los puntos extremos iniciales $A$ y $B$. |
+| **Paso 1: Secante inicial** | `T_SECANTE_INI_ANIM` | `T_SECANTE_INI_ESPERA` | `1.0s` / `1.0s` | Trazado de la recta secante $y - y_0 = m(x - x_0)$ (sólo en la primera iteración). |
+| **Paso 2: HUD Algebraico** | `T_HUD_ANIM` | `T_HUD_ESPERA` | `1.0s` / `1.0s` | Despliegue de la iteración, cálculo analítico de $x_i$, valor funcional y error relativo. |
+| **Paso 3: Proyección punto raíz** | `T_PROY_PUNTO_ANIM`<br>`T_PROY_LINEA_ANIM` | `T_PROY_PUNTO_ESPERA`<br>`T_PROY_LINEA_ESPERA` | `0.5s` / `1.0s`<br>`0.8s` / `1.0s` | Marca del corte de la secante con el eje X y proyección vertical hacia $f(c)$. |
+| **Paso 4: Limpieza de guías** | `T_LIMPIEZA_LINEA_ANIM`<br>`T_LIMPIEZA_PUNTO_ANIM` | `T_LIMPIEZA_LINEA_ESPERA`<br>`T_LIMPIEZA_PUNTO_ESPERA` | `0.5s` / `0.1s`<br>`0.5s` / `0.2s` | Purga atómica de la línea vertical y el marcador de raíz temporal. |
+| **Paso 5: Convergencia paramétrica**| `T_CONVERGENCIA_ANIM` | `T_CONVERGENCIA_ESPERA` | `2.0s` / `1.0s` | Vinculación del extremo móvil, la secante infinita y el punto raíz mediante `animar_convergencia_parametrica`. |
+| **Paso 6: Cierre de escena** | `T_FINAL_ANIM` | `T_FINAL_ESPERA` | `2.0s` / `1.0s` | `desvanecer_todo` final a negro. |
+
+---
+
+### 5.3. Plantilla: Método de Newton-Raphson (`Newton-Raphson.py`)
+
+Esta plantilla computa derivadas analíticas y utiliza rectas tangentes que pivotan sincrónicamente sobre la curva.
+
+| Paso | Constante de Animación | Constante de Espera | Valor Predefinido (`anim` / `espera`) | Descripción Técnica |
+| :--- | :--- | :--- | :--- | :--- |
+| **Paso 0: Punto ancla inicial** | `T_PUNTO_INI_ANIM` | `T_PUNTO_INI_ESPERA` | `0.5s` / `0.1s` | Instanciación del punto semilla $x_0$ sobre la curva $f(x)$. |
+| **Paso 1: Tangente inicial** | `T_TANGENTE_INI_ANIM` | `T_TANGENTE_INI_ESPERA` | `1.0s` / `1.0s` | Trazado de la recta tangente con pendiente $f'(x_0)$ (sólo en la primera iteración). |
+| **Paso 2: HUD Algebraico** | `T_HUD_ANIM` | `T_HUD_ESPERA` | `1.0s` / `1.0s` | Despliegue de la fórmula de Newton-Raphson $x_{i+1} = x_i - \frac{f(x_i)}{f'(x_i)}$ y error. |
+| **Paso 3: Proyección de corte** | `T_PROY_PUNTO_ANIM`<br>`T_PROY_LINEA_ANIM` | `T_PROY_PUNTO_ESPERA`<br>`T_PROY_LINEA_ESPERA` | `0.5s` / `1.0s`<br>`0.8s` / `1.0s` | Ubicación del corte con el eje X y proyección discontinua hacia la nueva evaluación en la curva. |
+| **Paso 4: Transición en paralelo** | `T_TRANSICION_PARALELO_ANIM` | `T_TRANSICION_PARALELO_ESPERA` | `2.0s` / `1.0s` | Ejecución concurrente dentro de `bloque_paralelo`: rotación de la tangente a la nueva pendiente mientras el punto ancla viaja sobre la curva. |
+| **Paso 5: Limpieza de guías** | `T_LIMPIEZA_LINEA_ANIM`<br>`T_LIMPIEZA_PUNTO_ANIM` | `T_LIMPIEZA_LINEA_ESPERA`<br>`T_LIMPIEZA_PUNTO_ESPERA` | `0.5s` / `0.1s`<br>`0.5s` / `0.2s` | `Uncreate` de la proyección y `FadeOut` del punto de corte temporal. |
+| **Paso 6: Cierre de escena** | `T_FINAL_ANIM` | `T_FINAL_ESPERA` | `2.0s` / `1.0s` | Desvanecimiento final suave de la escena completa. |
+
+---
+
+### 5.4. Ejemplos de Ajuste de Ritmo bajo Demanda
+
+Cuando el usuario requiera modificar el tiempo de algún paso específico, modifique **únicamente** la constante correspondiente en la cabecera:
+
+```python
+# Ejemplo 1: El usuario indica que las explicaciones matemáticas deben durar 3 segundos para leerse con calma
+T_HUD_ESPERA = 3.0
+
+# Ejemplo 2: El usuario indica que la convergencia de la secante debe ser lenta y detallada (4 segundos de animación)
+T_CONVERGENCIA_ANIM = 4.0
+
+# Ejemplo 3: El usuario solicita un render ultra rápido / express
+T_HUD_ANIM = 0.5
+T_HUD_ESPERA = 0.2
+T_CONVERGENCIA_ANIM = 1.0
+T_CONVERGENCIA_ESPERA = 0.2
+```
