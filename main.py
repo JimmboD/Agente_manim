@@ -1,94 +1,97 @@
 import math
-from manim import DOWN
 from Planos.generar_plano import AnimadorGrafico
 
-# 1. Definición Funcional 
+# ==========================================
+# CONFIGURACIÓN DE LA ANIMACIÓN
+# ==========================================
 def f_objetivo(x: float) -> float:
-    # Parábola suave para visualizar claramente la secante y la tangente
-    return 0.5 * x**2 + 1
+    return math.exp(x) - 3 * (x**2)
+
+LABEL_FUNCION = r"$$f(x) = e^x - 3x^2$$"
+A_INICIAL = 0.0
+B_INICIAL = 1.5
+TOLERANCIA = 0.0001
+MAX_ITERACIONES = 4
+# ==========================================
+
+def generar_secante(x0, y0, x1, y1):
+    return lambda x: (y1 - y0) / (x1 - x0) * (x - x0) + y0 if abs(x1 - x0) > 1e-5 else y0
 
 if __name__ == "__main__":
     
-    # 2. Instanciación Topológica y Overscan
-    escena = AnimadorGrafico(f_objetivo, x_min=-1.0, x_max=4.0)
+    escena = AnimadorGrafico(f_objetivo, x_min=-0.5, x_max=2.0)
     
-    # 3. Nodos Estáticos (Geometría Base)
-    # Punto ancla P(1, f(1))
-    escena.agregar_punto(
-        x=1.0, y=f_objetivo(1.0), 
-        color="#FF0000", label=True, 
-        tiempo_animacion=1.0, tiempo_espera=0.5
-    )
+    # Etiqueta fija en la esquina inferior derecha
+    escena.agregar_algebra_flotante(LABEL_FUNCION, posicion="DR", remover_al_final=False)
     
-    # 4. Interpolación Espacial Dinámica (Punto viajero)
-    # Genera un segundo punto Q que nace en el ancla y viaja por la curva hasta x=3.5
-    escena.animar_punto_sobre_curva(
-        x_inicio=1.0, x_fin=3.5, 
-        funcion=f_objetivo, 
-        color="#00FF00", 
-        tiempo_animacion=2.0, tiempo_espera=0.5
-    )
+    a, b = A_INICIAL, B_INICIAL
+    fa, fb = f_objetivo(a), f_objetivo(b)
+    c = b - fb * ((b - a) / (fb - fa))
     
-    # 5. Acotación Polimórfica Curve-Aware (Línea punteada)
-    # La coordenada y superior rastrea f(x) dinámicamente
-    escena.animar_linea_punteada(
-        x1_ini=3.5, x1_fin=3.5,
-        x2_ini=3.5, x2_fin=3.5,
-        y1_ini=f_objetivo, y2_ini=0, 
-        color="#00FFFF", 
-        tiempo_animacion=1.5, tiempo_espera=0.5
-    )
+    # ESTADO INICIAL
+    escena.agregar_punto(a, fa, color="#FFFF00", id="punto_A", tiempo_animacion=0.5, tiempo_espera=0.1)
+    escena.agregar_punto(b, fb, color="#FFFF00", id="punto_B", tiempo_animacion=0.5, tiempo_espera=0.1)
     
-    # 6. Llave Isométrica acoplada a ValueTracker
-    # Muestra el diferencial Delta X en el plano
-    escena.animar_llave(
-        x1_ini=1.0, x1_fin=1.0,
-        x2_ini=3.5, x2_fin=3.5,
-        y1_ini=0, y2_ini=0,
-        texto=r"\Delta x",
-        direccion=DOWN,
-        color="#FF00FF",
-        tiempo_animacion=1.0, tiempo_espera=1.0
-    )
+    error = 100.0
+    i = 1
     
-    # 7. Inyección de HUD Vectorial Persistente
-    hud_derivada = r"""
-    $$m = \frac{f(x+\Delta x) - f(x)}{\Delta x}$$
-    """
-    escena.agregar_algebra_flotante(
-        fuente_o_texto=hud_derivada, 
-        posicion="UL", 
-        remover_al_final=False, 
-        id="hud_limite",
-        tiempo_animacion=1.0, tiempo_espera=1.5
-    )
-    
-    # 8. Cinemática de Límite (Secante -> Tangente)
-    # Al reducir la distancia entre x1 y x2 a < 10^-4, el motor transiciona a tangente
-    escena.animar_secante(
-        x1_ini=1.0, x1_fin=1.0,
-        x2_ini=3.5, x2_fin=1.00001,
-        funcion=f_objetivo,
-        color="#FFFF00",
-        tiempo_animacion=4.0, tiempo_espera=1.5
-    )
-    
-    # 9. Purga de Entidades por ID
-    escena.eliminar_objeto(
-        id="hud_limite", 
-        animacion="FadeOut", 
-        tiempo_animacion=1.0, tiempo_espera=0.5
-    )
-    
-    # 10. Transformación de Estado (Topología -> Escalar Lógico)
-    texto_conclusion = r"f'(x) = \lim_{\Delta x \to 0} \frac{f(x+\Delta x) - f(x)}{\Delta x}"
-    escena.transformar_a_texto(
-        texto_latex=texto_conclusion, 
-        tiempo_animacion=2.0, tiempo_espera=3.0
-    )
-    
-    # 11. Finalización y Teardown
-    escena.desvanecer_todo(animacion="FadeOut", tiempo_animacion=1.5)
-    
-    # 12. Ejecución asíncrona en el construct() del Engine
+    # El bucle se rompe si el error es menor a la tolerancia o se excede el límite de iteraciones
+    while error > TOLERANCIA and i <= MAX_ITERACIONES:
+        fc = f_objetivo(c)
+        
+        # 1. DIBUJAR SECANTE INICIAL (Solo en la primera iteración)
+        if i == 1:
+            escena.agregar_funcion(generar_secante(a, fa, b, fb), color="#FFFF00", id="secante", tiempo_animacion=1.0)
+        
+        # 2. CÁLCULO ALGEBRAICO Y VISUALIZACIÓN DE ERROR
+        str_error = f"{error:.4f}\\%" if i > 1 else "\\text{N/A}"
+        texto_hud = f"""
+        $$\\text{{Iteración: }} {i}$$
+        $$x_{{{i}}} = {b:.4f} - f({b:.4f}) \\frac{{{b:.4f} - {a:.4f}}}{{f({b:.4f}) - f({a:.4f})}}$$
+        $$x_{{{i}}} \\approx {c:.4f}$$
+        $$\\text{{Error: }} {str_error}$$
+        """
+        escena.agregar_algebra_flotante(texto_hud, posicion="UL", remover_al_final=True, tiempo_animacion=1.0, tiempo_espera=1.0)
+        
+        # 3. PROYECCIÓN Y MARCA DEL PUNTO RAÍZ BLANCO
+        escena.agregar_punto(c, 0.0, color="#FFFFFF", label=False, id="punto_raiz", tiempo_animacion=0.5)
+        escena.animar_linea_punteada(
+            x1_ini=c, x1_fin=c, x2_ini=c, x2_fin=c, y1_ini=0.0, y2_ini=f_objetivo, 
+            color="#FFFFFF", id="proy_c", tiempo_animacion=0.8
+        )
+        
+        # 4. ELIMINACIÓN DEL PUNTO BLANCO Y LA LÍNEA ANTES DEL MOVIMIENTO DE LA RECTA
+        escena.eliminar_objeto(id="proy_c", animacion="Uncreate", tiempo_animacion=0.5, tiempo_espera=0.1)
+        escena.eliminar_objeto(id="punto_raiz", animacion="FadeOut", tiempo_animacion=0.5, tiempo_espera=0.2)
+        
+        # 5. CÁLCULO DE SIGUIENTE ITERACIÓN Y MOVIMIENTO PARAMÉTRICO
+        if fa * fc < 0:
+            b_viejo = b
+            b, fb = c, fc
+            c_nuevo = b - fb * ((b - a) / (fb - fa))
+            
+            escena.animar_convergencia_parametrica(
+                funcion=f_objetivo, x_fijo=a, 
+                x_movil_ini=b_viejo, x_movil_fin=b,
+                id_secante="secante", id_punto_curva="punto_B", id_punto_raiz="punto_raiz",
+                tiempo_animacion=2.0, tiempo_espera=1.0
+            )
+        else:
+            a_viejo = a
+            a, fa = c, fc
+            c_nuevo = b - fb * ((b - a) / (fb - fa))
+            
+            escena.animar_convergencia_parametrica(
+                funcion=f_objetivo, x_fijo=b, 
+                x_movil_ini=a_viejo, x_movil_fin=a,
+                id_secante="secante", id_punto_curva="punto_A", id_punto_raiz="punto_raiz",
+                tiempo_animacion=2.0, tiempo_espera=1.0
+            )
+        
+        # 6. ACTUALIZACIÓN DE VARIABLES Y ERROR PARA EL BUCLE
+        error = abs((c_nuevo - c) / c_nuevo) * 100 if c_nuevo != 0 else 100
+        c = c_nuevo
+        i += 1
+        
+    escena.desvanecer_todo(tiempo_animacion=2.0)
     escena.render(previsualizar=True)

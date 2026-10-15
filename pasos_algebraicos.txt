@@ -1,0 +1,6 @@
+$$\textcolor{yellow}{y} = \frac{f(b) - f(a)}{b - a} \textcolor{yellow}{x} + \textcolor{yellow}{b}$$
+$$y = \frac{f(b) - f(a)}{b - a} x + \textcolor{yellow}{b}$$
+$$f(c) = \frac{f(b) - f(a)}{b - a} c + \textcolor{yellow}{b}$$
+$$\textcolor{yellow}{b} = f(c) - \frac{f(b) - f(a)}{b - a} c$$
+$$y = \frac{f(b) - f(a)}{b - a} x + \left( f(c) - \frac{f(b) - f(a)}{b - a} c \right)$$
+$$y - f(c) = \textcolor{yellow}{\frac{f(b) - f(a)}{b - a}} (x - c)$$

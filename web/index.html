@@ -1,0 +1,1021 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>&sum; Manim Studio — Animación Manual y Funciones</title>
+  <meta name="description" content="Entorno interactivo para Manim Engine: Animación manual con main.py, constructor estilo Scratch, documentación y consola en vivo.">
+  
+  <!-- Favicon matemático con símbolo Sigma ∑ -->
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230A0A0A'/%3E%3Cpath d='M24 6H8v3l6 7-6 7v3h16v-4h-9l5-6-5-6h9V6z' fill='%23FFFFFF'/%3E%3C/svg%3E">
+  
+  <!-- Google Fonts: Outfit & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- KaTeX para renderizado matemático en tiempo real -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+
+  <!-- Marked.js para renderizar la documentación READMI.md -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+  <!-- Estilos propios en Vanilla CSS -->
+  <link rel="stylesheet" href="/index.css">
+</head>
+<body data-theme="blanco">
+  <!-- Fondos ambientales con gradientes orgánicos -->
+  <div class="ambient-glow glow-1"></div>
+  <div class="ambient-glow glow-2"></div>
+
+  <!-- Header Superior -->
+  <header class="app-header">
+    <div class="header-left">
+      <!-- Botón para abrir el panel de navegación izquierdo (Tres líneas horizontales) -->
+      <button id="btn-toggle-left-menu" class="btn btn-secondary btn-icon-box" title="Abrir Menú y Ajustes (Navegación)">
+        <span class="hamburger-symbol" aria-hidden="true">&#9776;</span>
+      </button>
+
+      <div class="header-brand">
+        <!-- Logo matemático (Símbolo Sigma ∑ de alta definición) -->
+        <div class="brand-icon" title="Entorno Matemático">
+          <span class="brand-math-glyph">&sum;</span>
+        </div>
+        <div>
+          <h1 class="brand-title">Manim Studio</h1>
+          <p class="brand-subtitle"><span id="active-tab-label">Animación manual</span> &bull; <code id="active-file-indicator">main.py</code></p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Barra de acciones rápidas (Solo Plantilla, Estado y Ejecutar) -->
+    <div class="header-actions">
+      <span class="status-indicator ready" id="engine-status-pill">Motor Listo</span>
+
+      <button id="btn-load-template" class="btn btn-secondary" title="Cargar plantilla de animación matemática">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+          <line x1="3" y1="9" x2="21" y2="9"></line>
+          <line x1="9" y1="21" x2="9" y2="9"></line>
+        </svg>
+        Cargar plantilla
+      </button>
+
+      <button id="btn-run" class="btn btn-primary pulse-btn" title="Guardar y ejecutar main.py en Manim (Ctrl+Enter)">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+          <polygon points="5 3 19 12 5 21 5 3"></polygon>
+        </svg>
+        <span id="btn-run-text">Ejecutar main.py</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- ========================================================================
+       BARRA LATERAL IZQUIERDA DESPLEGABLE (NAVEGACIÓN, AJUSTES, DOCS)
+       ======================================================================== -->
+  <aside id="left-sidebar" class="left-sidebar">
+    <div class="drawer-header">
+      <div class="drawer-title-group">
+        <div class="drawer-icon">
+          <span class="hamburger-symbol" aria-hidden="true">&#9776;</span>
+        </div>
+        <div>
+          <h2 class="drawer-title">Panel de Control</h2>
+          <p class="drawer-subtitle">Manim Studio &bull; Navegación</p>
+        </div>
+      </div>
+      <button id="btn-close-left-menu" class="btn-icon" title="Cerrar panel">&times;</button>
+    </div>
+
+    <div class="drawer-body">
+      <!-- Barra de acciones rápidas del menú -->
+      <div class="drawer-actions-bar">
+        <span class="drawer-hint-text">Secciones plegables</span>
+        <button id="btn-toggle-all-sections" class="btn-link-action" type="button" title="Expandir todas las secciones">Expandir todo</button>
+      </div>
+
+      <!-- 1. VISTAS DE TRABAJO (ACORDEÓN DESPLEGABLE CON CLICK - INICIA CERRADO) -->
+      <div class="collapsible-section">
+        <div class="collapsible-header" data-toggle="nav-views">
+          <span class="collapsible-arrow">&blacktriangleright;</span>
+          <span class="collapsible-title">VISTAS DE TRABAJO</span>
+          <span class="collapsible-count">4</span>
+        </div>
+        <div class="collapsible-content collapsed" id="section-nav-views">
+          <nav class="nav-menu">
+            <button type="button" class="nav-item active" data-view="view-manual" id="nav-btn-manual">
+              <span class="nav-sym">⟨/⟩</span>
+              <div class="nav-text">
+                <span class="nav-name">Animación manual</span>
+                <span class="nav-desc">Editor de código main.py &bull; Render</span>
+              </div>
+            </button>
+            <button type="button" class="nav-item" data-view="view-scratch" id="nav-btn-scratch">
+              <span class="nav-sym">⊞</span>
+              <div class="nav-text">
+                <span class="nav-name">Insertar funciones</span>
+                <span class="nav-desc">Constructor visual estilo Scratch</span>
+              </div>
+            </button>
+            <button type="button" class="nav-item" data-view="view-settings" id="nav-btn-settings">
+              <span class="nav-sym">⊛</span>
+              <div class="nav-text">
+                <span class="nav-name">Ajustes</span>
+                <span class="nav-desc">Color primario &bull; Calidad Manim</span>
+              </div>
+            </button>
+            <button type="button" class="nav-item" data-view="view-docs" id="nav-btn-docs">
+              <span class="nav-sym">§</span>
+              <div class="nav-text">
+                <span class="nav-name">Documentación</span>
+                <span class="nav-desc">Referencia técnica READMI.md</span>
+              </div>
+            </button>
+          </nav>
+        </div>
+      </div>
+
+      <!-- 2. COLOR PRIMARIO (ACORDEÓN DESPLEGABLE CON CLICK - INICIA CERRADO) -->
+      <div class="collapsible-section">
+        <div class="collapsible-header" data-toggle="nav-theme">
+          <span class="collapsible-arrow">&blacktriangleright;</span>
+          <span class="collapsible-title">COLOR PRIMARIO (TEMA)</span>
+          <span class="collapsible-count">4</span>
+        </div>
+        <div class="collapsible-content collapsed" id="section-nav-theme">
+          <p class="drawer-section-desc">Alto contraste sobre fondo negro chalkboard.</p>
+          <div class="theme-picker-grid">
+            <!-- Blanco (Principal / Default) -->
+            <div class="theme-card active" data-theme-val="blanco" id="theme-card-blanco">
+              <div class="theme-swatch swatch-blanco"><span class="swatch-symbol">&bull;</span></div>
+              <div class="theme-info">
+                <span class="theme-name">Blanco</span>
+                <span class="theme-tag">Principal &bull; Tiza 3B1B</span>
+              </div>
+              <span class="theme-check">&check;</span>
+            </div>
+            <!-- Azul -->
+            <div class="theme-card" data-theme-val="azul" id="theme-card-azul">
+              <div class="theme-swatch swatch-azul"><span class="swatch-symbol">&bull;</span></div>
+              <div class="theme-info">
+                <span class="theme-name">Azul</span>
+                <span class="theme-tag">Manim Cyan (#58C4DD)</span>
+              </div>
+              <span class="theme-check">&check;</span>
+            </div>
+            <!-- Amarillo -->
+            <div class="theme-card" data-theme-val="amarillo" id="theme-card-amarillo">
+              <div class="theme-swatch swatch-amarillo"><span class="swatch-symbol">&bull;</span></div>
+              <div class="theme-info">
+                <span class="theme-name">Amarillo</span>
+                <span class="theme-tag">3B1B Gold (#FFFF00)</span>
+              </div>
+              <span class="theme-check">&check;</span>
+            </div>
+            <!-- Verde -->
+            <div class="theme-card" data-theme-val="verde" id="theme-card-verde">
+              <div class="theme-swatch swatch-verde"><span class="swatch-symbol">&bull;</span></div>
+              <div class="theme-info">
+                <span class="theme-name">Verde</span>
+                <span class="theme-tag">Manim Green (#83C167)</span>
+              </div>
+              <span class="theme-check">&check;</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. CALIDAD DE RENDER (ACORDEÓN DESPLEGABLE - INICIA CERRADO) -->
+      <div class="collapsible-section">
+        <div class="collapsible-header" data-toggle="nav-quality">
+          <span class="collapsible-arrow">&blacktriangleright;</span>
+          <span class="collapsible-title">CALIDAD DE RENDER</span>
+          <span class="collapsible-count">3</span>
+        </div>
+        <div class="collapsible-content collapsed" id="section-nav-quality">
+          <div class="quality-selector">
+            <label class="quality-radio">
+              <input type="radio" name="manim-quality" value="low_quality" checked id="qual-low">
+              <div class="quality-card">
+                <div class="quality-name">480p &bull; 15 fps</div>
+                <div class="quality-sub">Rápido &bull; Previsualización ágil</div>
+              </div>
+            </label>
+            <label class="quality-radio">
+              <input type="radio" name="manim-quality" value="medium_quality" id="qual-med">
+              <div class="quality-card">
+                <div class="quality-name">720p &bull; 30 fps</div>
+                <div class="quality-sub">Estándar HD</div>
+              </div>
+            </label>
+            <label class="quality-radio">
+              <input type="radio" name="manim-quality" value="high_quality" id="qual-high">
+              <div class="quality-card">
+                <div class="quality-name">1080p &bull; 60 fps</div>
+                <div class="quality-sub">Producción Final 60fps</div>
+              </div>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- 4. ATAJOS DE TECLADO (ACORDEÓN DESPLEGABLE - INICIA CERRADO) -->
+      <div class="collapsible-section">
+        <div class="collapsible-header" data-toggle="nav-shortcuts">
+          <span class="collapsible-arrow">&blacktriangleright;</span>
+          <span class="collapsible-title">ATAJOS DE TECLADO</span>
+          <span class="collapsible-count">4</span>
+        </div>
+        <div class="collapsible-content collapsed" id="section-nav-shortcuts">
+          <div class="shortcuts-list">
+            <div class="shortcut-row">
+              <span class="shortcut-desc">Guardar código</span>
+              <span class="shortcut-keys"><kbd>Ctrl</kbd>+<kbd>S</kbd></span>
+            </div>
+            <div class="shortcut-row">
+              <span class="shortcut-desc">Ejecutar render</span>
+              <span class="shortcut-keys"><kbd>Ctrl</kbd>+<kbd>Enter</kbd></span>
+            </div>
+            <div class="shortcut-row">
+              <span class="shortcut-desc">Indentación</span>
+              <span class="shortcut-keys"><kbd>Tab</kbd></span>
+            </div>
+            <div class="shortcut-row">
+              <span class="shortcut-desc">Cerrar paneles</span>
+              <span class="shortcut-keys"><kbd>Esc</kbd></span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Overlay para cerrar la barra lateral -->
+  <div id="drawer-backdrop" class="drawer-backdrop hidden"></div>
+
+  <!-- ========================================================================
+       CONTENEDOR DE VISTAS PRINCIPALES
+       ======================================================================== -->
+  <main class="views-wrapper">
+    
+    <!-- ======================================================================
+         VISTA 1: ANIMACIÓN MANUAL (WORKFLOW MAIN.PY AJUSTADO A PANTALLA)
+         El editor y la salida visual se adaptan al 100vh de pantalla sin scroll.
+         Desplazando la pantalla hacia abajo, se visualiza la consola en vivo.
+         ====================================================================== -->
+    <div id="view-manual" class="app-view active">
+      
+      <!-- Fila Superior: Ajustada a la Pantalla (Sin Scroll necesario para ver todo) -->
+      <div class="screen-fitted-grid">
+        
+        <!-- Columna Izquierda: Editor de Código main.py -->
+        <section class="card glass-card editor-screen-card">
+          <div class="editor-header">
+            <div class="file-tab">
+              <span class="file-icon">⟨/⟩</span>
+              <span class="file-name" id="editor-file-name">main.py</span>
+              <span id="unsaved-badge" class="unsaved-dot hidden" title="Cambios no guardados">●</span>
+            </div>
+            <div class="editor-meta">
+              <span id="editor-cursor-pos">Línea 1, Col 1</span>
+              <span class="shortcut-hint">Ctrl+S Guardar &bull; Ctrl+Enter Ejecutar</span>
+            </div>
+          </div>
+
+          <div class="editor-wrapper">
+            <div id="line-numbers" class="line-numbers code-font">1</div>
+            <textarea id="code-editor" class="code-editor code-font" spellcheck="false" placeholder="# Cargando main.py..."></textarea>
+          </div>
+        </section>
+
+        <!-- Columna Derecha: Salida Visual (Video MP4) -->
+        <section class="card glass-card preview-screen-card">
+          <div class="card-header">
+            <div class="card-title-group">
+              <span class="step-badge">▶</span>
+              <div>
+                <h2 class="card-title">Salida Visual</h2>
+                <p class="card-desc">Renderizado de <code>EscenaAutomatica.mp4</code></p>
+              </div>
+            </div>
+            <div class="video-meta-badge" id="video-meta">Sin video activo</div>
+          </div>
+
+          <div class="video-container">
+            <video id="manim-video-player" controls preload="metadata">
+              <source id="video-source" src="" type="video/mp4">
+              Tu navegador no soporta el formato de video MP4.
+            </video>
+            
+            <!-- Overlay de Renderizado Activo -->
+            <div id="render-overlay" class="render-overlay hidden">
+              <div class="spinner-ring"></div>
+              <h3 class="overlay-title" id="overlay-status-title">Ejecutando main.py...</h3>
+              <p class="overlay-desc" id="overlay-status-desc">Compilando ecuaciones LaTeX y generando fotogramas</p>
+              <div class="progress-bar-wrap">
+                <div class="progress-bar-fill"></div>
+              </div>
+            </div>
+
+            <!-- Placeholder cuando no hay video -->
+            <div id="video-placeholder" class="video-placeholder">
+              <div class="placeholder-icon">
+                <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5">
+                  <rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"></rect>
+                  <line x1="7" y1="2" x2="7" y2="22"></line>
+                  <line x1="17" y1="2" x2="17" y2="22"></line>
+                  <line x1="2" y1="12" x2="22" y2="12"></line>
+                  <line x1="2" y1="7" x2="7" y2="7"></line>
+                  <line x1="2" y1="17" x2="7" y2="17"></line>
+                  <line x1="17" y1="17" x2="22" y2="17"></line>
+                  <line x1="17" y1="7" x2="22" y2="7"></line>
+                </svg>
+              </div>
+              <h3>Ningún video generado aún</h3>
+              <p>Edita tu código y presiona <strong>"Ejecutar main.py"</strong> para ver la animación aquí.</p>
+            </div>
+          </div>
+
+          <div class="video-footer">
+            <a id="btn-download-video" class="btn btn-secondary btn-sm disabled" download="EscenaAutomatica.mp4" href="#">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7 10 12 15 17 10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
+              </svg>
+              Descargar Video MP4
+            </a>
+            <button id="btn-restart-video" class="btn btn-secondary btn-sm" disabled>
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+                <path d="M3 3v5h5"></path>
+              </svg>
+              Reiniciar
+            </button>
+          </div>
+        </section>
+
+      </div>
+
+      <!-- Fila Inferior: Dual Grid (Consola a la izquierda + Módulo de Audio a la derecha debajo de la animación) -->
+      <div class="bottom-dual-grid">
+        
+        <!-- Columna Izquierda: Consola del Engine (Stdout / Stderr) -->
+        <section class="card glass-card bottom-console-card">
+          <div class="card-header terminal-header">
+            <div class="terminal-controls">
+              <span class="term-dot red"></span>
+              <span class="term-dot yellow"></span>
+              <span class="term-dot green"></span>
+              <span class="term-title">Consola del Engine (Stdout / Stderr)</span>
+            </div>
+            <div class="terminal-tools">
+              <button id="btn-clear-console" class="btn-term-tool" title="Limpiar registros">Limpiar</button>
+              <button id="btn-copy-console" class="btn-term-tool" title="Copiar registros">Copiar</button>
+            </div>
+          </div>
+
+          <div id="terminal-screen" class="terminal-screen code-font">
+            <div class="term-line term-system">
+              <span class="term-timestamp">[00:00:00]</span> Manim Studio Engine conectado. Listo para compilar main.py.
+            </div>
+          </div>
+        </section>
+
+        <!-- Columna Derecha: Módulo de Audio Sincronizado (Debajo de la Salida Visual) -->
+        <section class="card glass-card bottom-audio-card" id="audio-module-card">
+          <div class="card-header audio-header">
+            <div class="card-title-group">
+              <span class="step-badge audio-badge">
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M9 18V5l12-2v13"></path>
+                  <circle cx="6" cy="18" r="3"></circle>
+                  <circle cx="18" cy="16" r="3"></circle>
+                </svg>
+              </span>
+              <div>
+                <h3 class="card-title" style="font-size: 1rem;">Audio Sincronizado</h3>
+                <p class="card-desc">Banda sonora acoplada al renderizado</p>
+              </div>
+            </div>
+            <div class="audio-status-badge" id="audio-status-badge">
+              <span class="audio-status-dot"></span>
+              <span id="audio-status-text">Sin audio</span>
+            </div>
+          </div>
+
+          <!-- Reproductor de Audio HTML5 -->
+          <audio id="manim-audio-player" preload="auto"></audio>
+          <input type="file" id="audio-file-input" accept="audio/*" style="display: none;">
+
+          <div class="audio-body">
+            <!-- Zona de Carga / Dropzone cuando no hay audio activo -->
+            <div id="audio-dropzone" class="audio-dropzone">
+              <div class="dropzone-icon">
+                <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.8">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                  <polyline points="17 8 12 3 7 8"></polyline>
+                  <line x1="12" y1="3" x2="12" y2="15"></line>
+                </svg>
+              </div>
+              <div class="dropzone-text">
+                <span>Arrastra un archivo de audio o</span>
+                <button type="button" id="btn-browse-audio" class="btn btn-secondary btn-sm" style="margin-left: 0.35rem;">Examinar</button>
+              </div>
+              <span class="dropzone-hint">Formatos: MP3, WAV, OGG, AAC, FLAC, M4A</span>
+            </div>
+
+            <!-- Panel de Controles Activo (cuando un audio está cargado) -->
+            <div id="audio-controls-panel" class="audio-controls-panel hidden">
+              <!-- Fila Info del Archivo -->
+              <div class="audio-file-info-row">
+                <div class="audio-file-details">
+                  <div class="audio-equalizer" id="audio-equalizer">
+                    <span></span><span></span><span></span><span></span>
+                  </div>
+                  <span class="audio-file-name" id="audio-file-name">audio.mp3</span>
+                  <span class="audio-file-duration code-font" id="audio-file-duration">00:00</span>
+                </div>
+                <div class="audio-file-actions">
+                  <button type="button" id="btn-change-audio" class="btn-audio-tool" title="Cambiar archivo de audio">Cambiar</button>
+                  <button type="button" id="btn-remove-audio" class="btn-audio-tool danger" title="Desvincular audio">&times;</button>
+                </div>
+              </div>
+
+              <!-- Fila de Barra de Tiempo y Scrubbing -->
+              <div class="audio-scrub-row">
+                <span class="audio-time code-font" id="audio-cur-time">00:00</span>
+                <input type="range" id="audio-progress-bar" class="audio-progress-bar" min="0" max="100" value="0" step="0.1">
+                <span class="audio-time code-font" id="audio-total-time">00:00</span>
+              </div>
+
+              <!-- Fila de Controles de Reproducción y Volumen -->
+              <div class="audio-player-controls-row">
+                <div class="audio-buttons-left">
+                  <button type="button" id="btn-audio-play" class="btn btn-primary btn-sm btn-audio-play" title="Reproducir audio de forma independiente">
+                    <svg id="audio-play-icon" viewBox="0 0 24 24" width="13" height="13" fill="currentColor">
+                      <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                    </svg>
+                    <span id="audio-play-label">Play</span>
+                  </button>
+                  <button type="button" id="btn-audio-stop" class="btn btn-secondary btn-sm" title="Detener audio y volver al inicio configurado">
+                    <svg viewBox="0 0 24 24" width="11" height="11" fill="currentColor">
+                      <rect x="5" y="5" width="14" height="14" rx="2"></rect>
+                    </svg>
+                  </button>
+                </div>
+
+                <div class="audio-volume-group">
+                  <button type="button" id="btn-audio-mute" class="btn-audio-mute" title="Silenciar / Activar sonido">
+                    <svg id="audio-vol-icon" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2">
+                      <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                      <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+                    </svg>
+                  </button>
+                  <input type="range" id="audio-volume-slider" class="audio-vol-slider" min="0" max="1" step="0.05" value="1">
+                  <span class="audio-vol-label code-font" id="audio-vol-label">100%</span>
+                </div>
+              </div>
+
+              <!-- Tarjeta de Configuración del Segundo de Inicio (Requisito Clave) -->
+              <div class="audio-offset-config-card">
+                <div class="audio-offset-header">
+                  <div class="audio-offset-title-group">
+                    <span class="offset-badge">
+                      <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <polyline points="12 6 12 12 16 14"></polyline>
+                      </svg>
+                    </span>
+                    <span class="offset-title">Segundo de inicio en la animación</span>
+                  </div>
+                  <button type="button" id="btn-set-current-as-start" class="btn-offset-quick" title="Usa la posición actual de reproducción como segundo de inicio">
+                    Usar tiempo actual
+                  </button>
+                </div>
+
+                <div class="audio-offset-controls">
+                  <div class="offset-input-wrap">
+                    <label for="audio-start-input">Inicio:</label>
+                    <input type="text" id="audio-start-input" class="code-font offset-text-input" value="00:00" placeholder="00:00" maxlength="5">
+                  </div>
+                  <div class="offset-numeric-wrap">
+                    <label for="audio-start-seconds">Segundos:</label>
+                    <input type="number" id="audio-start-seconds" class="code-font offset-sec-input" value="0.0" min="0" step="0.5">
+                  </div>
+                  <div class="offset-nudge-buttons">
+                    <button type="button" class="btn-nudge" data-nudge="-5">-5s</button>
+                    <button type="button" class="btn-nudge" data-nudge="-1">-1s</button>
+                    <button type="button" class="btn-nudge" data-nudge="1">+1s</button>
+                    <button type="button" class="btn-nudge" data-nudge="5">+5s</button>
+                    <button type="button" id="btn-reset-offset" class="btn-nudge reset" title="Restablecer a 00:00">00:00</button>
+                  </div>
+                </div>
+
+                <div class="audio-sync-options">
+                  <label class="sync-checkbox-label">
+                    <input type="checkbox" id="check-auto-sync" checked>
+                    <span>Iniciar audio automáticamente con la animación</span>
+                  </label>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </section>
+
+      </div>
+
+    </div>
+
+    <!-- ======================================================================
+         VISTA 2: INSERTAR FUNCIONES (ESTILO SCRATCH CON RENDERIZADO EN VIVO)
+         Integra la paleta de habilidades en bloques visuales apilables.
+         ====================================================================== -->
+    <div id="view-scratch" class="app-view">
+      <div class="scratch-layout">
+        
+        <!-- Columna 1: Paleta de Bloques / Habilidades (Categorías con Acordeón) -->
+        <aside class="scratch-palette-card card glass-card">
+          <div class="palette-header">
+            <h2 class="scratch-title">Bloques de Habilidad</h2>
+            <p class="scratch-subtitle">Click para agregar a la secuencia</p>
+          </div>
+
+          <div class="palette-scroll">
+            
+            <!-- Categoría 1: Geometría y Puntos -->
+            <div class="collapsible-section">
+              <div class="collapsible-header" data-toggle="cat-puntos">
+                <span class="collapsible-arrow">&blacktriangledown;</span>
+                <span class="collapsible-title">1. GEOMETRÍA Y PUNTOS</span>
+              </div>
+              <div class="collapsible-content open" id="section-cat-puntos">
+                <div class="block-templates">
+                  <div class="scratch-block-pill block-geo" data-add-block="punto">
+                    <span class="block-badge">⊙</span>
+                    <span class="block-name">agregar_punto(x, y)</span>
+                  </div>
+                  <div class="scratch-block-pill block-geo" data-add-block="punto_curva">
+                    <span class="block-badge">●→</span>
+                    <span class="block-name">animar_punto_sobre_curva(x_ini, x_fin)</span>
+                  </div>
+                  <div class="scratch-block-pill block-geo" data-add-block="fade_in_plano">
+                    <span class="block-badge">⊞</span>
+                    <span class="block-name">fade_in_plano([x_min, x_max])</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Categoría 2: Curvas y Funciones -->
+            <div class="collapsible-section">
+              <div class="collapsible-header" data-toggle="cat-curvas">
+                <span class="collapsible-arrow">&blacktriangledown;</span>
+                <span class="collapsible-title">2. CURVAS Y TRAYECTORIAS</span>
+              </div>
+              <div class="collapsible-content open" id="section-cat-curvas">
+                <div class="block-templates">
+                  <div class="scratch-block-pill block-func" data-add-block="funcion">
+                    <span class="block-badge">ƒ(x)</span>
+                    <span class="block-name">agregar_funcion(f, color)</span>
+                  </div>
+                  <div class="scratch-block-pill block-func" data-add-block="secante">
+                    <span class="block-badge">⊿</span>
+                    <span class="block-name">animar_secante(x1, x2)</span>
+                  </div>
+                  <div class="scratch-block-pill block-func" data-add-block="convergencia_parametrica">
+                    <span class="block-badge">⟳</span>
+                    <span class="block-name">animar_convergencia_parametrica()</span>
+                  </div>
+                  <div class="scratch-block-pill block-func" data-add-block="integral">
+                    <span class="block-badge">&int;</span>
+                    <span class="block-name">animar_integral(f, a, b)</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Categoría 3: Acotación Espacial -->
+            <div class="collapsible-section">
+              <div class="collapsible-header" data-toggle="cat-acotacion">
+                <span class="collapsible-arrow">&blacktriangledown;</span>
+                <span class="collapsible-title">3. ACOTACIÓN Y LLAVES</span>
+              </div>
+              <div class="collapsible-content open" id="section-cat-acotacion">
+                <div class="block-templates">
+                  <div class="scratch-block-pill block-dim" data-add-block="linea_punteada">
+                    <span class="block-badge">┊</span>
+                    <span class="block-name">animar_linea_punteada()</span>
+                  </div>
+                  <div class="scratch-block-pill block-dim" data-add-block="llave">
+                    <span class="block-badge">{ }</span>
+                    <span class="block-name">animar_llave(texto="\Delta x")</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Categoría 4: Fórmulas y HUD LaTeX -->
+            <div class="collapsible-section">
+              <div class="collapsible-header" data-toggle="cat-hud">
+                <span class="collapsible-arrow">&blacktriangledown;</span>
+                <span class="collapsible-title">4. HUD &amp; TEXTO LATEX</span>
+              </div>
+              <div class="collapsible-content open" id="section-cat-hud">
+                <div class="block-templates">
+                  <div class="scratch-block-pill block-tex" data-add-block="algebra_flotante">
+                    <span class="block-badge">∑</span>
+                    <span class="block-name">agregar_algebra_flotante(HUD)</span>
+                  </div>
+                  <div class="scratch-block-pill block-tex" data-add-block="transformar_texto">
+                    <span class="block-badge">Tx</span>
+                    <span class="block-name">transformar_a_texto(formula)</span>
+                  </div>
+                  <div class="scratch-block-pill block-tex" data-add-block="transformar_objeto">
+                    <span class="block-badge">⇄</span>
+                    <span class="block-name">transformar_objeto(Universal)</span>
+                  </div>
+                  <div class="scratch-block-pill block-tex" data-add-block="transformar_plano">
+                    <span class="block-badge">ℝ²</span>
+                    <span class="block-name">transformar_a_plano()</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Categoría 5: Purga y Ciclo de Vida -->
+            <div class="collapsible-section">
+              <div class="collapsible-header" data-toggle="cat-purga">
+                <span class="collapsible-arrow">&blacktriangledown;</span>
+                <span class="collapsible-title">5. PURGA Y CICLO DE VIDA</span>
+              </div>
+              <div class="collapsible-content open" id="section-cat-purga">
+                <div class="block-templates">
+                  <div class="scratch-block-pill block-purge" data-add-block="eliminar_objeto">
+                    <span class="block-badge">⊖</span>
+                    <span class="block-name">eliminar_objeto(id, animacion)</span>
+                  </div>
+                  <div class="scratch-block-pill block-purge" data-add-block="fade_out_plano">
+                    <span class="block-badge">⊞⁻</span>
+                    <span class="block-name">fade_out_plano()</span>
+                  </div>
+                  <div class="scratch-block-pill block-purge" data-add-block="desvanecer_todo">
+                    <span class="block-badge">∅</span>
+                    <span class="block-name">desvanecer_todo()</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Categoría 6: Ejecución Paralela y Concurrencia -->
+            <div class="collapsible-section">
+              <div class="collapsible-header" data-toggle="cat-paralelo">
+                <span class="collapsible-arrow">&blacktriangledown;</span>
+                <span class="collapsible-title">6. EJECUCIÓN PARALELA</span>
+              </div>
+              <div class="collapsible-content open" id="section-cat-paralelo">
+                <div class="block-templates">
+                  <div class="scratch-block-pill block-parallel" data-add-block="iniciar_bloque_paralelo">
+                    <span class="block-badge">⫘</span>
+                    <span class="block-name">iniciar_bloque_paralelo()</span>
+                  </div>
+                  <div class="scratch-block-pill block-parallel" data-add-block="cerrar_bloque_paralelo">
+                    <span class="block-badge">⫙</span>
+                    <span class="block-name">cerrar_bloque_paralelo(t_anim, t_wait)</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </aside>
+
+        <!-- Columna 2: Secuencia de Bloques Apilados (Constructor Visual) -->
+        <section class="scratch-stack-card card glass-card">
+          <div class="stack-header">
+            <div>
+              <h2 class="scratch-title">Secuencia de Animación</h2>
+              <p class="scratch-subtitle">Flujo secuencial de ejecución en construct()</p>
+            </div>
+            <div class="stack-actions">
+              <button id="btn-scratch-render" class="btn btn-primary btn-sm" title="Compilar secuencia en main.py y renderizar animación">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                Renderizar Bloques
+              </button>
+              <button id="btn-scratch-to-main" class="btn btn-secondary btn-sm" title="Inyectar bloques construidos a main.py">
+                Inyectar a main.py
+              </button>
+              <button id="btn-scratch-clear" class="btn btn-secondary btn-sm" title="Vaciar secuencia">
+                Limpiar
+              </button>
+            </div>
+          </div>
+
+          <div id="scratch-stack-list" class="scratch-stack-list">
+            <!-- Bloques inyectados dinámicamente con inputs interactivos -->
+          </div>
+        </section>
+
+        <!-- Columna 3: Salida Visual en la misma pestaña -->
+        <section class="scratch-preview-card card glass-card">
+          <div class="card-header">
+            <div class="card-title-group">
+              <span class="step-badge">▶</span>
+              <div>
+                <h2 class="card-title">Salida Visual</h2>
+                <p class="card-desc">Visualización de la secuencia</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="video-container scratch-video-wrap">
+            <video id="scratch-video-player" controls preload="metadata">
+              <source id="scratch-video-source" src="" type="video/mp4">
+              Tu navegador no soporta video MP4.
+            </video>
+            <div id="scratch-video-placeholder" class="video-placeholder">
+              <div class="placeholder-icon">
+                <svg viewBox="0 0 24 24" width="42" height="42" fill="none" stroke="currentColor" stroke-width="1.5">
+                  <rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"></rect>
+                  <polygon points="10 8 16 12 10 16 10 8"></polygon>
+                </svg>
+              </div>
+              <p>Presiona <strong>"Renderizar Bloques"</strong> para compilar tu secuencia aquí.</p>
+            </div>
+          </div>
+        </section>
+
+      </div>
+    </div>
+
+    <!-- ======================================================================
+         VISTA 3: AJUSTES COMPLETOS DEL ENTORNO
+         ====================================================================== -->
+    <div id="view-settings" class="app-view">
+      <div class="settings-full-card card glass-card">
+        <div class="card-header">
+          <div class="card-title-group">
+            <span class="step-badge">⊛</span>
+            <div>
+              <h2 class="card-title">Ajustes del Entorno y Motor Manim</h2>
+              <p class="card-desc">Configuración cromática, renderizado y visualización</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="settings-full-body">
+          <div class="settings-grid-cols">
+            <!-- Columna Ajuste 1: Tema Cromático -->
+            <div class="settings-box">
+              <h3 class="settings-box-title">Color Primario (Tema Manim)</h3>
+              <p class="settings-box-desc">Lienzo con fondo negro profundo estilo pizarra de tiza 3Blue1Brown.</p>
+              <div class="theme-picker-grid">
+                <div class="theme-card active" data-theme-val="blanco">
+                  <div class="theme-swatch swatch-blanco"><span class="swatch-symbol">&bull;</span></div>
+                  <div class="theme-info"><span class="theme-name">Blanco</span><span class="theme-tag">Principal &bull; Tiza Chalkboard (#FFFFFF)</span></div>
+                  <span class="theme-check">&check;</span>
+                </div>
+                <div class="theme-card" data-theme-val="azul">
+                  <div class="theme-swatch swatch-azul"><span class="swatch-symbol">&bull;</span></div>
+                  <div class="theme-info"><span class="theme-name">Azul</span><span class="theme-tag">Manim Cyan (#58C4DD)</span></div>
+                  <span class="theme-check">&check;</span>
+                </div>
+                <div class="theme-card" data-theme-val="amarillo">
+                  <div class="theme-swatch swatch-amarillo"><span class="swatch-symbol">&bull;</span></div>
+                  <div class="theme-info"><span class="theme-name">Amarillo</span><span class="theme-tag">3B1B Gold (#FFFF00)</span></div>
+                  <span class="theme-check">&check;</span>
+                </div>
+                <div class="theme-card" data-theme-val="verde">
+                  <div class="theme-swatch swatch-verde"><span class="swatch-symbol">&bull;</span></div>
+                  <div class="theme-info"><span class="theme-name">Verde</span><span class="theme-tag">Manim Green (#83C167)</span></div>
+                  <span class="theme-check">&check;</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Columna Ajuste 2: Calidad -->
+            <div class="settings-box">
+              <h3 class="settings-box-title">Resolución y Tasa de Fotogramas</h3>
+              <p class="settings-box-desc">Ajuste de renderizado para <code>tempconfig</code> en el motor.</p>
+              <div class="quality-selector">
+                <label class="quality-radio">
+                  <input type="radio" name="manim-quality-full" value="low_quality" checked id="qual-full-low">
+                  <div class="quality-card">
+                    <div class="quality-name">480p &bull; 15 fps (Previsualización Rápida)</div>
+                    <div class="quality-sub">Ideal para iteración fluida y desarrollo ágil.</div>
+                  </div>
+                </label>
+                <label class="quality-radio">
+                  <input type="radio" name="manim-quality-full" value="medium_quality" id="qual-full-med">
+                  <div class="quality-card">
+                    <div class="quality-name">720p &bull; 30 fps (Estándar HD)</div>
+                    <div class="quality-sub">Equilibrio ideal entre velocidad y nitidez.</div>
+                  </div>
+                </label>
+                <label class="quality-radio">
+                  <input type="radio" name="manim-quality-full" value="high_quality" id="qual-full-high">
+                  <div class="quality-card">
+                    <div class="quality-name">1080p &bull; 60 fps (Producción Final)</div>
+                    <div class="quality-sub">Máxima fidelidad gráfica para videos definitivos.</div>
+                  </div>
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ======================================================================
+         VISTA 4: DOCUMENTACIÓN (RENDERIZADO DE READMI.MD)
+         ====================================================================== -->
+    <div id="view-docs" class="app-view">
+      <div class="docs-card card glass-card">
+        <div class="docs-header">
+          <div class="card-title-group">
+            <span class="step-badge">§</span>
+            <div>
+              <h2 class="card-title">Documentación Técnica: READMI.md</h2>
+              <p class="card-desc">Referencia de API del motor <code>AnimadorGrafico</code> y Arquitectura</p>
+            </div>
+          </div>
+          <button id="btn-reload-docs" class="btn btn-secondary btn-sm" title="Recargar documento">Recargar READMI.md</button>
+        </div>
+
+        <div id="docs-content" class="docs-content markdown-body">
+          <div class="loading-docs-wrap">
+            <div class="spinner-ring"></div>
+            <p>Cargando documentación técnica desde <code>READMI.md</code>...</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- ========================================================================
+       MODAL: CARGAR PLANTILLAS MATEMÁTICAS
+       ======================================================================== -->
+  <div id="modal-templates" class="modal-backdrop hidden">
+    <div class="modal-card glass-card modal-templates-card">
+      <div class="modal-header">
+        <h3 class="modal-title">Cargar Plantilla de Animación Matemática</h3>
+        <button id="btn-close-templates-modal" class="btn-icon">&times;</button>
+      </div>
+      <div class="modal-body templates-container">
+        
+        <!-- Subcarpeta: Análisis Numérico -->
+        <div class="template-folder-section">
+          <div class="template-folder-header">
+            <span class="folder-symbol">&asymp;</span>
+            <h4 class="folder-title">Análisis numérico</h4>
+            <span class="folder-badge">3 plantillas</span>
+          </div>
+          <div class="templates-grid">
+            <div class="template-item" data-template-id="regla_falsa">
+              <div class="template-header">
+                <span class="template-badge">1</span>
+                <h4 class="template-title">Regla falsa (Falsa Posición)</h4>
+              </div>
+              <p class="template-desc">Algoritmo numérico iterativo con convergencia paramétrica absoluta, proyección en eje X y HUD con cálculo de error porcentual.</p>
+              <div class="template-preview-code">animar_convergencia_parametrica(), TOLERANCIA=0.0001</div>
+            </div>
+            <div class="template-item" data-template-id="biseccion">
+              <div class="template-header">
+                <span class="template-badge">2</span>
+                <h4 class="template-title">Método de Bisección</h4>
+              </div>
+              <p class="template-desc">Búsqueda binaria de raíces por división sucesiva del intervalo a la mitad, con proyección vertical y traslación continua sobre la curva.</p>
+              <div class="template-preview-code">c = (a + b) / 2, animar_punto_sobre_curva()</div>
+            </div>
+            <div class="template-item template-highlight" data-template-id="newton_raphson">
+              <div class="template-header">
+                <span class="template-badge">3</span>
+                <h4 class="template-title">Método de Newton-Raphson</h4>
+              </div>
+              <p class="template-desc">Aproximación por recta tangente analítica rodando sobre la curva $f(x)$ con cálculo de derivada exacta y pivoteo en paralelo.</p>
+              <div class="template-preview-code">x_{n+1} = x_n - f(x_n)/f'(x_n), bloque_paralelo()</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Subcarpeta: Cálculo Diferencial -->
+        <div class="template-folder-section">
+          <div class="template-folder-header">
+            <span class="folder-symbol">&part;</span>
+            <h4 class="folder-title">Cálculo diferencial</h4>
+            <span class="folder-badge">3 plantillas</span>
+          </div>
+          <div class="templates-grid">
+            <div class="template-item" data-template-id="derivada_limite">
+              <div class="template-header">
+                <span class="template-badge">1</span>
+                <h4 class="template-title">Límite Derivada (Secante &rarr; Tangente)</h4>
+              </div>
+              <p class="template-desc">Demostración geométrica del límite $\Delta x \to 0$, con punto viajero, recta secante transicionando a tangente, HUD de derivada y conclusión analítica.</p>
+              <div class="template-preview-code">escena.animar_secante(..., x2_fin=1.00001)</div>
+            </div>
+            <div class="template-item" data-template-id="serie_taylor">
+              <div class="template-header">
+                <span class="template-badge">2</span>
+                <h4 class="template-title">Serie de Taylor (SymPy Simbólico)</h4>
+              </div>
+              <p class="template-desc">Cálculo simbólico exacto de derivadas de orden superior con SymPy y deformación continua de polinomios de aproximación para $\sin(x)$.</p>
+              <div class="template-preview-code">sp.diff(), sp.lambdify(), transformar_objeto()</div>
+            </div>
+            <div class="template-item template-highlight" data-template-id="integral">
+              <div class="template-header">
+                <span class="template-badge">3</span>
+                <h4 class="template-title">Integral (Sumas de Riemann &amp; Definida)</h4>
+              </div>
+              <p class="template-desc">Aproximación por rectángulos crecientes $n \in \{3, 6, 12, 30\}$, cálculo dinámico de $\Delta x$ en HUD y crossfade paralelo hacia el área analítica sólida.</p>
+              <div class="template-preview-code">animar_integral(..., dx=dx), bloque_paralelo()</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Subcarpeta: Álgebra y Geometría -->
+        <div class="template-folder-section">
+          <div class="template-folder-header">
+            <span class="folder-symbol">&angmsd;</span>
+            <h4 class="folder-title">Álgebra y geometría</h4>
+            <span class="folder-badge">3 plantillas</span>
+          </div>
+          <div class="templates-grid">
+            <div class="template-item" data-template-id="curva_polinomica">
+              <div class="template-header">
+                <span class="template-badge">1</span>
+                <h4 class="template-title">Polinomio &amp; Mapeo de Puntos</h4>
+              </div>
+              <p class="template-desc">Curva cúbica suave con múltiples puntos ancla, etiquetas de coordenadas y líneas de acotación ortogonales hacia los ejes.</p>
+              <div class="template-preview-code">escena.agregar_punto(label=True), animar_linea_punteada()</div>
+            </div>
+            <div class="template-item" data-template-id="hud_algebra">
+              <div class="template-header">
+                <span class="template-badge">2</span>
+                <h4 class="template-title">HUD Vectorial &amp; Acotación con Llaves</h4>
+              </div>
+              <p class="template-desc">Fórmula cuadrática con HUD flotante en la esquina superior izquierda, y llaves isométrica acopladas al diferencial $\Delta x$.</p>
+              <div class="template-preview-code">escena.animar_llave(texto=r"\Delta x"), agregar_algebra_flotante()</div>
+            </div>
+            <div class="template-item template-highlight" data-template-id="pasos_algebraicos">
+              <div class="template-header">
+                <span class="template-badge">3</span>
+                <h4 class="template-title">Pasos algebráicos</h4>
+              </div>
+              <p class="template-desc">Plantilla especial: Permite programar directamente el archivo de ecuaciones LaTeX (pasos_algebraicos.txt) con morphing y resaltado de color full-screen.</p>
+              <div class="template-preview-code">pasos_algebraicos.txt &bull; escena.insertar_algebra()</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Subcarpeta: Ecuaciones Diferenciales -->
+        <div class="template-folder-section">
+          <div class="template-folder-header">
+            <span class="folder-symbol">&int;</span>
+            <h4 class="folder-title">Ecuaciones diferenciales</h4>
+            <span class="folder-badge">1 plantilla</span>
+          </div>
+          <div class="templates-grid">
+            <div class="template-item template-highlight" data-template-id="serie_fourier">
+              <div class="template-header">
+                <span class="template-badge">1</span>
+                <h4 class="template-title">Series de Fourier (Análisis Armónico)</h4>
+              </div>
+              <p class="template-desc">Descomposición y síntesis armónica de onda cuadrada mediante suma de frecuencias impares con SymPy y deformación continua.</p>
+              <div class="template-preview-code">fourier_expr += (4 / (sp.pi * n)) * sp.sin(n * x_sym), transformar_objeto()</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Subcarpeta: Control y Ciclo de Vida -->
+        <div class="template-folder-section">
+          <div class="template-folder-header">
+            <span class="folder-symbol">&#x29D7;</span>
+            <h4 class="folder-title">Control y ciclo de vida</h4>
+            <span class="folder-badge">1 plantilla</span>
+          </div>
+          <div class="templates-grid">
+            <div class="template-item" data-template-id="purga_ciclo_vida">
+              <div class="template-header">
+                <span class="template-badge">1</span>
+                <h4 class="template-title">Ciclo de Vida: Purga y Muerte de Escena</h4>
+              </div>
+              <p class="template-desc">Creación de nodos, eliminación selectiva por ID con efecto Uncreate/FadeOut, y desvanecimiento final armónico a negro.</p>
+              <div class="template-preview-code">escena.eliminar_objeto(id="..."), escena.desvanecer_todo()</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+      <div class="modal-footer">
+        <button id="btn-cancel-template" class="btn btn-secondary btn-sm">Cancelar</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>

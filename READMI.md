@@ -1,7 +1,7 @@
 
 ---
 
-# 📄 Technical Reference: Entorno Animador Matemático (Manim Engine)
+# § Technical Reference: Entorno Animador Matemático (Manim Engine)
 
 ## 1. System Architecture Overview
 
@@ -28,11 +28,15 @@ Clase orquestadora para la configuración de la escena geométrica en $\mathbb{R
 Añade un nodo estático a la topología. Si `label=True`, anexa un tensor textual `MathTex` con sus coordenadas relativas al campo visual.
 * **`agregar_funcion(funcion: Callable, x_min: float | None = None, x_max: float | None = None, color: str = GREEN, tiempo_animacion: float = 1.0, tiempo_espera: float = 1.0) -> self`**
 Añade una función auxiliar mapeada en el plano. Limita el subdominio dinámicamente si los umbrales no son declarados explícitamente.
+* **`animar_integral(funcion: Callable, x_min: float, x_max: float, dx: float | None = None, color: str = "#00FFFF", opacidad: float = 0.5, id_area: str | None = None, tiempo_animacion: float = 1.0, tiempo_espera: float = 0.5) -> self`**
+Subsistema de cálculo integral y aproximación por Sumas de Riemann. Si `dx` está definido, renderiza rectángulos de partición de Riemann (`get_riemann_rectangles`) con grosor de contorno unitario y opacidad controlada. Si `dx=None`, renderiza el área continua bajo la curva (`get_area`). Se ubica automáticamente con $z\text{-index}=1$ por debajo de las curvas principales.
 
 ### 2.2. Métodos de Cinemática y Acotación Espacial (Dynamic Geometry)
 
-* **`animar_punto_sobre_curva(x_inicio: float, x_fin: float, funcion: Callable | None = None, color: str = YELLOW, tiempo_animacion: float = 1.0, tiempo_espera: float = 1.0) -> self`**
-Ejecuta una interpolación posicional acoplada a la trayectoria de $f(x)$ mediante el uso de `ValueTracker`.
+* **`animar_punto_sobre_curva(x_inicio: float, x_fin: float, funcion: Callable | None = None, color: str = YELLOW, tiempo_animacion: float = 1.0, tiempo_espera: float = 1.0, id: str | None = None) -> self`**
+Ejecuta una interpolación posicional acoplada a la trayectoria de $f(x)$ mediante un carril invisible parametrizado con `ParametricFunction` y la animación nativa `MoveAlongPath`. Elimina por completo `ValueTracker` y dependencias de updaters frame-a-frame, garantizando sincronización exacta en milisegundos cuando se despacha dentro de bloques de concurrencia paralela (`bloque_paralelo`). Si se provee `id` y el punto ya existe en la memoria de la escena (`self.objetos`), se reutiliza el mobject existente sin `FadeIn` duplicado.
+* **`animar_convergencia_parametrica(funcion: Callable, x_fijo: float, x_movil_ini: float, x_movil_fin: float, id_secante: str, id_punto_curva: str, id_punto_raiz: str, tiempo_animacion: float = 2.0, tiempo_espera: float = 1.0) -> self`**
+**Paradigma Paramétrico Maestro.** Sincronización absoluta de convergencia numérica. Vincula la recta secante (`id_secante`), el extremo móvil de la curva (`id_punto_curva`) y el punto raíz sobre el eje X (`id_punto_raiz`) a un único parámetro maestro $\alpha \in [0, 1]$ (`ValueTracker`). En cada fotograma, el motor evalúa simultáneamente la posición exacta del punto sobre $f(x)$, computa la pendiente analítica de la secante que pasa por el punto fijo $(x_{fijo}, f(x_{fijo}))$, extiende la recta infinita a los límites del plano y calcula en tiempo real el corte exacto con el eje $Y=0$. Al estar gobernadas por la misma variable escalar, es físicamente imposible que ocurra desincronización por curvas de aceleración (easing) dispares.
 * **`animar_secante(x1_ini: float, x1_fin: float, x2_ini: float, x2_fin: float, funcion: Callable | None = None, color: str = YELLOW, tiempo_animacion: float = 1.0, tiempo_espera: float = 1.0) -> self`**
 Genera un segmento lineal dinámico. Si $\vert{}x_2 - x_1\vert{} < 10^{-4}$, computa automáticamente la derivada numérica simétrica para transicionar a una tangente.
 * **`animar_linea_punteada(x1_ini: float, x1_fin: float, x2_ini: float, x2_fin: float, y1_ini: float | Callable, y2_ini: float | Callable, y1_fin: float | None = None, y2_fin: float | None = None, color: str = WHITE, tiempo_animacion: float = 1.0, tiempo_espera: float = 1.0) -> self`**
@@ -42,6 +46,17 @@ Proyecta un vector discontinuo (`DashedLine`) entre dos coordenadas.
 Instancia una llave isométrica (`BraceBetweenPoints`) acoplada a dos nodos iterativos por `ValueTracker`. Soporta inyección de texto LaTeX mediante `texto` y control de vector normal mediante `direccion` (ej. `UP`, `DOWN`).
 
 ### 2.3. Métodos de Transición de Estado Visual (Geometry $\leftrightarrow$ Algebra)
+
+* **`transformar_objeto(origen: str | None = None, tipo_destino: str | None = None, funcion: Callable | None = None, x: float | None = None, y: float | None = None, texto: str | None = None, x_min: float | None = None, x_max: float | None = None, color: str | None = None, label: bool = False, posicion: str | tuple = "center", id_destino: str | None = None, animacion: str = "ReplacementTransform", tiempo_animacion: float = 1.5, tiempo_espera: float = 1.0) -> self`**
+  **ReplacementTransform Universal Multidireccional.** Permite transicionar morfológicamente cualquier entidad de la escena (función, punto o label) hacia cualquier otra entidad (función, punto o label).
+  * *Entidad de origen (`origen`):* Identificador (`id`) del mobject previamente registrado (`"mi_curva"`, `"mi_punto"`, `"hud_limite"`), o `None` para aplicar sobre el último objeto creado en la escena. También acepta los alias de sistema `"principal"`, `"grafica"`, `"plano"` y `"texto_central"`.
+  * *Entidad de destino (`tipo_destino`):*
+    * `"funcion"`: Genera una curva matemática continua trazada por $f(x)$ sobre el plano cartesiano (`funcion=callable`, `x_min`, `x_max`, `color`).
+    * `"integral"`: Genera rectángulos de Riemann (`dx` especificado) o área continua (`dx=None`) acoplados a la curva (`funcion=callable`, `x_min`, `x_max`, `dx`, `opacidad`, `color`).
+    * `"punto"`: Colapsa o transmuta la entidad en un punto coordinado $\mathbb{R}^2$ (`x`, `y`, `color`, `label=True/False`).
+    * `"label"` / `"texto"`: Transforma la entidad en un tensor tipográfico o ecuación LaTeX (`texto=r"..."`, `posicion="center" | "UL" | "UR" | "DL" | "DR" | (x, y)`).
+  * *Deducción automática:* Si `tipo_destino` es omitido, el motor infiere automáticamente el tipo destino según los parámetros provistos (`funcion` $\to$ función, `texto` $\to$ label, `x`/`y` $\to$ punto).
+  * *Aliases:* `replacement_transform`, `transformar`, `transformacion_universal`.
 
 * **`transformar_a_texto(texto_latex: str, tiempo_animacion: float = 1.5, tiempo_espera: float = 1.0) -> self`**
 Compresión topológica mediante `ReplacementTransform` global hacia un tensor lógico escalar (`MathTex`).
@@ -62,6 +77,29 @@ Alias sintáctico de `eliminar_objeto`.
 * **`desvanecer_todo(animacion: str = "FadeOut", tiempo_animacion: float = 1.5, tiempo_espera: float = 1.0) -> self`**
 Provoca la finalización suave de la escena disolviendo todos los mobjects a negro (*muerte* de la animación).
 
+### 2.5. Métodos de Ejecución Paralela y Concurrencia (Simultaneous Animations)
+
+Permite orquestar múltiples animaciones, mutaciones morfológicas y purgas en un único fotograma temporal simultáneo (`self.play(*anims, run_time=t_anim)`), eliminando esperas y desfaces secuenciales.
+
+* **`iniciar_bloque_paralelo() -> self`**
+  Abre un contexto recolector de ejecución concurrente. Las instrucciones añadidas subsecuentemente a la cola (`transformar_objeto`, `agregar_punto`, `agregar_funcion`, `eliminar_objeto`, etc.) no se reproducen de manera aislada, sino que sus instancias `Animation` de Manim se acumulan en un buffer sincrónico.
+  * *Alias:* `iniciar_paralelo()`.
+
+* **`cerrar_bloque_paralelo(tiempo_animacion: float = 1.5, tiempo_espera: float = 1.0) -> self`**
+  Cierra el contexto recolector y dispara todas las animaciones acumuladas al unísono en `self.play(*anims_paralelas, run_time=tiempo_animacion)`. Tras concluir la interpolación, ejecuta los finalizadores topológicos (actualización de identificadores `id` y registros de objetos) y aplica un tiempo de reposo (`tiempo_espera`).
+  * *Alias:* `cerrar_paralelo()`.
+
+* **`bloque_paralelo(tiempo_animacion: float = 1.5, tiempo_espera: float = 1.0) -> ContextManager`**
+  Context manager Pythonic para agrupar bloques concurrentes de forma concisa:
+  ```python
+  with escena.bloque_paralelo(tiempo_animacion=2.0, tiempo_espera=1.0):
+      escena.transformar_objeto(origen="secante", tipo_destino="funcion", funcion=f_nueva, id_destino="secante")
+      escena.transformar_objeto(origen="nodo_B", tipo_destino="punto", x=c, y=fc, id_destino="nodo_B")
+  ```
+
+* **Directiva de Identificadores en Paralelo:**
+  Cuando se ejecutan múltiples `transformar_objeto()` o `eliminar_objeto()` en paralelo, se deben declarar identificadores explícitos (`id="nombre"`) en el origen para garantizar que cada animación capture su tensor correspondiente sin colisiones de cursor.
+
 ---
 
 ## 3. Arquitectura del Motor Computacional
@@ -78,6 +116,8 @@ Provoca la finalización suave de la escena disolviendo todos los mobjects a neg
 * **v6.0 - Optimizaciones Topológicas:** Bounding boxes calculados vía `scipy.optimize`, y limitadores perimetrales (Overscan + FOV Padding) para prevención algorítmica de clipping geométrico.
 * **v7.0 - Interpolación Espacial Paramétrica:** Inyección de un `ValueTracker` maestro paramétrico ($\alpha \in [0,1]$) capaz de manejar polimorfismo de coordenadas. Transforma las primitivas de acotación (líneas punteadas y llaves) en entidades "curve-aware" (que detectan e interpolan su posición vertical dinámicamente rastreando la función principal).
 * **v8.0 - Ciclo de Vida y Purga de Entidades:** Implementación del subsistema de registro de mobjects por identificador (`id`), métodos de eliminación atómica (`eliminar_objeto`, `remover_objeto`, `desvanecer_todo`) con efectos 'Uncreate', 'FadeOut' y 'Shrink', y soporte nativo para inicialización de escena desde etiquetas LaTeX (`iniciar_con_texto`).
+* **v9.0 - Universal Replacement Transform Engine:** Implementación del método de metamorfosis universal `transformar_objeto` (con alias `replacement_transform`), capaz de mutar cualquier mobject registrado de tipo función, punto o label hacia cualquier otro tipo con preservación de tablas de identificadores, resolución de dominio perimetral y adaptabilidad de coordenadas.
+* **v10.0 - Pipeline de Ejecución Concurrente / Paralela (Parallel Animation Engine):** Implementación del subsistema de concurrencia gráfica basado en `iniciar_bloque_paralelo()`, `cerrar_bloque_paralelo()` y el context manager `bloque_paralelo()`. Permite el empaquetado y detonación sincrónica de múltiples transformaciones morfológicas (`ReplacementTransform`), creaciones geométricas y purgas atómicas en un único ciclo `self.play(*anims)`, sincronizando transiciones multidimensionales coordinadas sin retardos secuenciales intermedios.
 
 ---
 
