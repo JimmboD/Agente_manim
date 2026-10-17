@@ -17,12 +17,13 @@
   <!-- KaTeX para renderizado matemático en tiempo real -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
   <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
 
   <!-- Marked.js para renderizar la documentación READMI.md -->
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 
   <!-- Estilos propios en Vanilla CSS -->
-  <link rel="stylesheet" href="/index.css">
+  <link rel="stylesheet" href="/index.css?v=2">
 </head>
 <body data-theme="blanco">
   <!-- Fondos ambientales con gradientes orgánicos -->
@@ -100,7 +101,7 @@
         <div class="collapsible-header" data-toggle="nav-views">
           <span class="collapsible-arrow">&blacktriangleright;</span>
           <span class="collapsible-title">VISTAS DE TRABAJO</span>
-          <span class="collapsible-count">4</span>
+          <span class="collapsible-count">5</span>
         </div>
         <div class="collapsible-content collapsed" id="section-nav-views">
           <nav class="nav-menu">
@@ -116,6 +117,13 @@
               <div class="nav-text">
                 <span class="nav-name">Insertar funciones</span>
                 <span class="nav-desc">Constructor visual estilo Scratch</span>
+              </div>
+            </button>
+            <button type="button" class="nav-item" data-view="view-short" id="nav-btn-short">
+              <span class="nav-sym">∆</span>
+              <div class="nav-text">
+                <span class="nav-name">Creador de Shorts</span>
+                <span class="nav-desc">Video vertical &bull; Cadencia exacta</span>
               </div>
             </button>
             <button type="button" class="nav-item" data-view="view-settings" id="nav-btn-settings">
@@ -853,6 +861,426 @@
       </div>
     </div>
 
+    <!-- ======================================================================
+         VISTA 5: CREADOR DE SHORTS (SISTEMA DE CADENCIA MATEMÁTICA)
+         ====================================================================== -->
+    <div id="view-short" class="app-view">
+      <div class="short-studio-container">
+        
+        <!-- Header de la Vista Short -->
+        <header class="card glass-card short-header-banner">
+          <div class="short-header-left">
+            <span class="step-badge short-badge-icon">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="5" y="2" width="14" height="20" rx="3" ry="3"></rect>
+                <line x1="12" y1="18" x2="12.01" y2="18"></line>
+              </svg>
+            </span>
+            <div>
+              <div class="short-title-row">
+                <h2 class="card-title short-main-title">Creador de Shorts</h2>
+                <span class="badge-tag short-pill-tag">Formato Vertical 9:16 &bull; Manim Studio</span>
+              </div>
+              <p class="card-desc">Generación automatizada de animaciones matemáticas con cadencia temporal calibrada.</p>
+            </div>
+          </div>
+          <div class="short-header-right">
+            <div class="short-quick-stat" id="short-header-quick-stat">
+              <span class="quick-stat-label">Duración Objetivo</span>
+              <span class="quick-stat-val text-primary" id="short-quick-compat-pill">60 s</span>
+            </div>
+            <div class="short-quick-stat">
+              <span class="quick-stat-label">Factor de Cadencia</span>
+              <span class="quick-stat-val text-accent" id="short-quick-factor-val">1.00x</span>
+            </div>
+          </div>
+        </header>
+
+        <!-- Rejilla Principal de Trabajo: Configuración (Izq) + Ejecución y Resultados (Der) -->
+        <div class="short-grid-workspace">
+          
+          <!-- COLUMNA IZQUIERDA: CONFIGURACIÓN MATEMÁTICA Y PARÁMETROS -->
+          <div class="short-config-column">
+            
+            <!-- 1. MÉTODO NUMÉRICO -->
+            <section class="card glass-card short-section-card">
+              <div class="section-card-header">
+                <div class="card-title-group">
+                  <span class="step-num-badge">1</span>
+                  <div>
+                    <h3 class="card-title">Método Numérico</h3>
+                    <p class="card-desc">Selecciona el método de resolución a animar</p>
+                  </div>
+                </div>
+              </div>
+              <div class="method-cards-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.85rem;">
+                <!-- Tarjeta Bisección -->
+                <div class="short-method-card active" data-method="biseccion" id="method-card-biseccion">
+                  <div class="method-card-top">
+                    <h4 class="method-title">Bisección</h4>
+                    <span class="method-check-mark">
+                      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                    </span>
+                  </div>
+                  <div class="method-formula" data-tex="c = \frac{a+b}{2}">$$c = \frac{a+b}{2}$$</div>
+                </div>
+
+                <!-- Tarjeta Regla Falsa -->
+                <div class="short-method-card" data-method="regla_falsa" id="method-card-regla-falsa">
+                  <div class="method-card-top">
+                    <h4 class="method-title">Regla Falsa</h4>
+                    <span class="method-check-mark">
+                      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                    </span>
+                  </div>
+                  <div class="method-formula" data-tex="c = b - f(b)\frac{b-a}{f(b)-f(a)}">$$c = b - f(b)\frac{b-a}{f(b)-f(a)}$$</div>
+                </div>
+
+                <!-- Tarjeta Newton-Raphson -->
+                <div class="short-method-card" data-method="newton_raphson" id="method-card-newton-raphson">
+                  <div class="method-card-top">
+                    <h4 class="method-title">Newton-Raphson</h4>
+                    <span class="method-check-mark">
+                      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                    </span>
+                  </div>
+                  <div class="method-formula" data-tex="x_{n+1} = x_n - \frac{f(x_n)}{f'(x_n)}">$$x_{n+1} = x_n - \frac{f(x_n)}{f'(x_n)}$$</div>
+                </div>
+
+                <!-- Tarjeta Serie de Taylor -->
+                <div class="short-method-card" data-method="serie_taylor" id="method-card-taylor">
+                  <div class="method-card-top">
+                    <h4 class="method-title">Serie de Taylor</h4>
+                    <span class="method-check-mark">
+                      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                    </span>
+                  </div>
+                  <div class="method-formula" data-tex="T_n(x) = \sum_{k=0}^n \frac{f^{(k)}(x_0)}{k!}(x-x_0)^k">$$T_n(x) = \sum_{k=0}^n \frac{f^{(k)}(x_0)}{k!}(x-x_0)^k$$</div>
+                </div>
+              </div>
+            </section>
+
+            <!-- 2. REQUISITOS DEL MÉTODO -->
+            <section class="card glass-card short-section-card">
+              <div class="section-card-header">
+                <div class="card-title-group">
+                  <span class="step-num-badge">2</span>
+                  <div>
+                    <h3 class="card-title">Requisitos del Método</h3>
+                    <p class="card-desc">Función matemática, valores iniciales y dominio cartesiano</p>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Modo Automático / Generador de Ejercicios Aleatorios -->
+              <div class="short-auto-gen-panel">
+                <div class="auto-gen-header">
+                  <div class="auto-gen-title-box">
+                    <span class="auto-gen-badge-icon">
+                      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="3" y="3" width="18" height="18" rx="3" ry="3"></rect>
+                        <circle cx="8.5" cy="8.5" r="1.5" fill="currentColor"></circle>
+                        <circle cx="15.5" cy="8.5" r="1.5" fill="currentColor"></circle>
+                        <circle cx="12" cy="12" r="1.5" fill="currentColor"></circle>
+                        <circle cx="8.5" cy="15.5" r="1.5" fill="currentColor"></circle>
+                        <circle cx="15.5" cy="15.5" r="1.5" fill="currentColor"></circle>
+                      </svg>
+                    </span>
+                    <div>
+                      <h4 class="auto-gen-title">Modo Automático &bull; Generador de Ejercicios</h4>
+                      <p class="auto-gen-sub">Genera funciones continuas con raíces reales e intervalos garantizados</p>
+                    </div>
+                  </div>
+                  <div class="auto-gen-status-badge hidden" id="auto-gen-status-badge">
+                    <span class="auto-gen-dot"></span>
+                    <span id="auto-gen-status-text">Listo</span>
+                  </div>
+                </div>
+
+                <div class="auto-gen-actions">
+                  <!-- Botón 1: Ruleta Completa (Método + Función + Intervalo) -->
+                  <button type="button" class="btn btn-primary auto-btn-roulette pulse-glow" id="btn-short-random-all" title="Generar un ejercicio completo totalmente al azar (selecciona método, función e intervalo/semilla)">
+                    <span class="auto-btn-icon">
+                      <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="16 3 21 3 21 8"></polyline>
+                        <line x1="4" y1="20" x2="21" y2="3"></line>
+                        <polyline points="21 16 21 21 16 21"></polyline>
+                        <line x1="15" y1="15" x2="21" y2="21"></line>
+                        <line x1="4" y1="4" x2="9" y2="9"></line>
+                      </svg>
+                    </span>
+                    <span class="auto-btn-text">Ruleta Completa (Método + Función + Intervalo)</span>
+                  </button>
+
+                  <!-- Botón 2: Función Aleatoria para Método Seleccionado -->
+                  <button type="button" class="btn btn-secondary auto-btn-method" id="btn-short-random-current" title="Generar simplemente una función e intervalo/semilla para el método numérico actual">
+                    <span class="auto-btn-icon">
+                      <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" fill="currentColor"></polygon>
+                      </svg>
+                    </span>
+                    <span class="auto-btn-text" id="btn-short-random-current-text">Función Aleatoria (Bisección)</span>
+                  </button>
+                </div>
+
+                <!-- Barra de resumen del ejercicio generado -->
+                <div class="auto-gen-summary-row hidden" id="auto-gen-summary-row">
+                  <span class="auto-chip-tag" id="auto-chip-method">Bisección</span>
+                  <span class="auto-chip-tag" id="auto-chip-root">Raíz objetivo: <strong>-</strong></span>
+                  <span class="auto-chip-tag" id="auto-chip-param">Intervalo: <strong>-</strong></span>
+                </div>
+              </div>
+
+              <!-- Entrada de Función -->
+              <div class="short-input-field">
+                <label for="short-input-func" class="short-label">Función matemática f(x):</label>
+                <div class="input-with-icon-wrap">
+                  <span class="input-prefix-sym">f(x) =</span>
+                  <input type="text" id="short-input-func" class="short-text-input" value="exp(x) - 3*(x**2)" placeholder="ej. exp(x) - 3*x**2 o x**3 - x - 2">
+                </div>
+              </div>
+
+              <!-- Ejemplos de Funciones -->
+              <div class="func-example-chips-row">
+                <span class="func-chip-label">Plantillas:</span>
+                <button type="button" class="func-chip" data-fn="exp(x) - 3*(x**2)" data-a="0.0" data-b="1.5" data-x0="1.5" data-xmin="-0.5" data-xmax="2.0">e^x - 3x²</button>
+                <button type="button" class="func-chip" data-fn="sin(x)" data-a="-3.0" data-b="3.0" data-x0="0.0" data-xmin="-6.0" data-xmax="6.0">sin(x)</button>
+                <button type="button" class="func-chip" data-fn="x**3 - x - 2" data-a="1.0" data-b="2.0" data-x0="1.8" data-xmin="0.5" data-xmax="2.5">x³ - x - 2</button>
+                <button type="button" class="func-chip" data-fn="cos(x) - x" data-a="0.0" data-b="1.0" data-x0="0.8" data-xmin="-0.5" data-xmax="1.8">cos(x) - x</button>
+                <button type="button" class="func-chip" data-fn="x**2 - 2" data-a="1.0" data-b="2.0" data-x0="1.5" data-xmin="0.0" data-xmax="2.5">x² - 2</button>
+              </div>
+
+              <!-- Previsualización KaTeX -->
+              <div class="short-latex-preview-card" id="short-latex-preview-box">
+                <div class="latex-preview-title">Notación matemática renderizada:</div>
+                <div class="latex-render-target" id="short-katex-target"></div>
+                <div class="latex-deriv-target hidden" id="short-katex-deriv-target"></div>
+              </div>
+
+              <!-- Parámetros Contextuales -->
+              <div class="short-params-grid">
+                <!-- Intervalo [a, b] (Bisección y Regla Falsa) -->
+                <div class="short-param-box" id="param-group-intervalo">
+                  <div class="short-twin-inputs">
+                    <div>
+                      <label for="short-param-a" class="short-label">Extremo Izquierdo (a):</label>
+                      <input type="number" id="short-param-a" class="short-number-input" value="0.0" step="0.1">
+                    </div>
+                    <div>
+                      <label for="short-param-b" class="short-label">Extremo Derecho (b):</label>
+                      <input type="number" id="short-param-b" class="short-number-input" value="1.5" step="0.1">
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Punto Inicial x0 (Newton-Raphson y Serie de Taylor) -->
+                <div class="short-param-box hidden" id="param-group-punto">
+                  <div>
+                    <label for="short-param-x0" class="short-label" id="short-label-x0">Punto Inicial (x₀):</label>
+                    <input type="number" id="short-param-x0" class="short-number-input" value="1.5" step="0.1">
+                  </div>
+                </div>
+
+                <!-- Dominio Cartesiano [xmin, xmax] -->
+                <div class="short-param-box">
+                  <div class="short-twin-inputs">
+                    <div>
+                      <label for="short-param-xmin" class="short-label">Eje X Mín (x_min):</label>
+                      <input type="number" id="short-param-xmin" class="short-number-input" value="-0.5" step="0.5">
+                    </div>
+                    <div>
+                      <label for="short-param-xmax" class="short-label">Eje X Máx (x_max):</label>
+                      <input type="number" id="short-param-xmax" class="short-number-input" value="2.0" step="0.5">
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <!-- 3. TIEMPO (DURACIÓN OBJETIVO) -->
+            <section class="card glass-card short-section-card">
+              <div class="section-card-header">
+                <div class="card-title-group">
+                  <span class="step-num-badge">3</span>
+                  <div>
+                    <h3 class="card-title">Tiempo Objetivo</h3>
+                    <p class="card-desc">Duración del video para escalar el ritmo de la animación</p>
+                  </div>
+                </div>
+                <div class="short-time-display-pill" id="short-time-display-pill">
+                  <span id="short-time-display-val">60</span> s
+                </div>
+              </div>
+
+              <!-- Presets Rápidos Limpios -->
+              <div class="short-preset-chips-row">
+                <button type="button" class="preset-chip" data-time="15">15 s</button>
+                <button type="button" class="preset-chip" data-time="30">30 s</button>
+                <button type="button" class="preset-chip" data-time="45">45 s</button>
+                <button type="button" class="preset-chip active" data-time="60">60 s</button>
+              </div>
+
+              <!-- Slider de Tiempo -->
+              <div class="short-slider-group">
+                <input type="range" id="short-time-slider" min="10" max="120" step="1" value="60" class="styled-range">
+                <div class="range-marks-row">
+                  <span>10 s</span>
+                  <span>30 s</span>
+                  <span class="mark-bold">60 s</span>
+                  <span>90 s</span>
+                  <span>120 s</span>
+                </div>
+              </div>
+            </section>
+
+            <!-- 4. NÚMERO DE ITERACIONES / GRADO -->
+            <section class="card glass-card short-section-card">
+              <div class="section-card-header">
+                <div class="card-title-group">
+                  <span class="step-num-badge">4</span>
+                  <div>
+                    <h3 class="card-title" id="short-iter-heading">Número de Iteraciones</h3>
+                    <p class="card-desc" id="short-iter-desc">Pasos sucesivos del algoritmo a animar</p>
+                  </div>
+                </div>
+                <div class="short-time-display-pill secondary" id="short-iter-display-pill">
+                  <span id="short-iter-display-val">4</span> <span id="short-iter-unit">iteraciones</span>
+                </div>
+              </div>
+              <div class="short-slider-group">
+                <input type="range" id="short-iter-slider" min="1" max="8" step="1" value="4" class="styled-range">
+                <div class="range-marks-row">
+                  <span>1</span>
+                  <span>2</span>
+                  <span>3</span>
+                  <span class="mark-bold">4</span>
+                  <span>5</span>
+                  <span>6</span>
+                  <span>7</span>
+                  <span>8</span>
+                </div>
+              </div>
+            </section>
+
+            <!-- BARRA DE ACCIONES (Botón principal para ejecutar por detrás + Cargar en editor) -->
+            <div class="short-actions-bar">
+              <button type="button" class="btn btn-primary short-main-action-btn" id="btn-short-generate-video">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                  <polygon points="5 3 19 12 5 21 5 3" fill="currentColor"></polygon>
+                </svg>
+                <span id="btn-short-generate-text">Generar Video</span>
+              </button>
+
+              <button type="button" class="btn btn-secondary short-secondary-action-btn" id="btn-short-to-editor" title="Cargar código generado en el editor manual">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="16 18 22 12 16 6"></polyline>
+                  <polyline points="8 6 2 12 8 18"></polyline>
+                </svg>
+                <span>Cargar en Editor</span>
+              </button>
+            </div>
+
+          </div>
+
+
+          <!-- COLUMNA DERECHA: ESTADO DE GENERACIÓN, CONSOLA Y PREVISUALIZACIÓN DE VIDEO -->
+          <div class="short-output-column">
+            
+            <!-- Card de Estado de Video / Spinner / Reproductor -->
+            <section class="card glass-card short-status-card" id="short-status-card">
+              <div class="short-status-card-header">
+                <div class="short-status-title-group">
+                  <span class="short-status-indicator-dot" id="short-status-indicator-dot"></span>
+                  <h3 class="card-title" id="short-status-heading">Salida Visual</h3>
+                </div>
+                <div class="video-meta-badge" id="short-video-meta">Sin video activo</div>
+              </div>
+
+              <!-- Estado: En Espera / Resumen de Configuración -->
+              <div class="short-state-view" id="short-state-idle">
+                <div class="short-summary-preview">
+                  <div class="short-summary-row">
+                    <span class="short-summary-label">Método:</span>
+                    <span class="short-summary-val" id="short-summary-metodo">Bisección</span>
+                  </div>
+                  <div class="short-summary-row">
+                    <span class="short-summary-label">Tiempo objetivo:</span>
+                    <span class="short-summary-val" id="short-summary-tiempo">60 s</span>
+                  </div>
+                  <div class="short-summary-row">
+                    <span class="short-summary-label" id="short-summary-iter-label">Iteraciones:</span>
+                    <span class="short-summary-val" id="short-summary-iter">4</span>
+                  </div>
+                </div>
+                <p class="short-hint-text">Presiona &laquo;Generar Video&raquo; para compilar la animación con Manim en segundo plano.</p>
+              </div>
+
+              <!-- Estado: Cargando / Spinner de Compilación -->
+              <div class="short-state-view hidden" id="short-state-loading">
+                <div class="short-loader-container">
+                  <div class="short-spinner-ring"></div>
+                  <div class="short-loader-text-group">
+                    <h4 class="short-loader-title">Generando video...</h4>
+                    <p class="short-loader-desc" id="short-loader-msg">Compilando animación Manim con Python en segundo plano</p>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Estado: Video Generado Exitosamente -->
+              <div class="short-state-view hidden" id="short-state-player">
+                <div class="short-video-wrapper">
+                  <video id="short-video-player" controls preload="metadata" playsinline class="short-html5-video">
+                    <source src="" type="video/mp4" id="short-video-source">
+                    Tu navegador no soporta el formato de video MP4.
+                  </video>
+                </div>
+                <div class="video-footer short-video-toolbar">
+                  <a id="short-btn-download-video" href="#" download="short_manim.mp4" class="btn btn-secondary btn-sm disabled short-dl-btn">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                      <polyline points="7 10 12 15 17 10"></polyline>
+                      <line x1="12" y1="15" x2="12" y2="3"></line>
+                    </svg>
+                    <span>Descargar Video MP4</span>
+                  </a>
+                  <button type="button" id="short-btn-restart-video" class="btn btn-secondary btn-sm" disabled title="Reiniciar reproducción">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+                      <path d="M3 3v5h5"></path>
+                    </svg>
+                    <span>Reiniciar</span>
+                  </button>
+                </div>
+              </div>
+            </section>
+
+            <!-- Card de Consola de Compilación / Logs en Tiempo Real -->
+            <section class="card glass-card short-console-card">
+              <div class="short-console-header">
+                <div class="card-title-group">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="4 17 10 11 4 5"></polyline>
+                    <line x1="12" y1="19" x2="20" y2="19"></line>
+                  </svg>
+                  <h4 class="card-title" style="font-size: 0.9rem;">Consola de Ejecución</h4>
+                </div>
+                <div class="short-console-actions">
+                  <button type="button" class="btn btn-secondary btn-xs" id="btn-short-clear-console" title="Limpiar salida">Limpiar</button>
+                  <button type="button" class="btn btn-secondary btn-xs" id="btn-short-copy-console" title="Copiar logs">Copiar</button>
+                </div>
+              </div>
+              <div class="short-terminal-screen" id="short-terminal-screen">
+                <div class="term-line term-system"><span class="term-timestamp">[00:00:00]</span> Consola lista. Los registros de Manim se mostrarán aquí durante la generación.</div>
+              </div>
+            </section>
+
+          </div>
+
+        </div>
+
+      </div>
+    </div>
+
   </main>
 
   <!-- ========================================================================
@@ -1016,6 +1444,6 @@
     </div>
   </div>
 
-  <script src="/app.js"></script>
+  <script src="/app.js?v=2"></script>
 </body>
 </html>

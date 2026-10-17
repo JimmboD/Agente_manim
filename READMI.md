@@ -62,10 +62,25 @@ Instancia una llave isométrica (`BraceBetweenPoints`) acoplada a dos nodos iter
 Compresión topológica mediante `ReplacementTransform` global hacia un tensor lógico escalar (`MathTex`).
 * **`transformar_a_plano(tiempo_animacion: float = 1.5, tiempo_espera: float = 1.0) -> self`**
 Descompresión del estado escalar y retorno a geometría $\mathbb{R}^2$.
-* **`insertar_algebra(fuente_o_texto: str, tiempo_animacion: float = 1.0, tiempo_espera: float = 1.0) -> self`**
-Suspende la topología gráfica activa e invoca el pipeline simbólico. Acepta `.txt` o raw strings.
-* **`agregar_algebra_flotante(fuente_o_texto: str, posicion: str = "UL", remover_al_final: bool = False, tiempo_animacion: float = 1.0, tiempo_espera: float = 1.0, id: str | None = None) -> self`**
-Inyecta un HUD vectorial superpuesto (`aligned_edge` routing).
+* **`insertar_algebra(fuente_o_texto: str, tiempo_animacion: float = 1.0, tiempo_espera: float = 1.0, tiempo_transformacion: float | None = None, tiempos_transformacion: list[float] | None = None, tiempos_espera: list[float] | None = None, tiempo_escritura: float | None = None) -> self`**
+Suspende la topología gráfica activa e invoca el pipeline simbólico en pantalla completa (modo central). Acepta rutas a archivos `.txt`, listas de fórmulas o cadenas multilínea con delimitadores `$$`.
+
+* **`agregar_algebra_flotante(fuente_o_texto: str, posicion: str = "UL", remover_al_final: bool = False, tiempo_animacion: float = 1.0, tiempo_espera: float = 1.0, id: str | None = None, tiempo_transformacion: float | None = None, tiempos_transformacion: list[float] | None = None, tiempos_espera: list[float] | None = None, tiempo_escritura: float | None = None, tiempo_replacement_transform: float | None = None, tiempo_pantalla: float | None = None, tiempo_entre_pasos: float | None = None) -> self`**
+Inyecta un HUD analítico vectorial superpuesto anclado a las esquinas del viewport (`UL`, `UR`, `DL`, `DR`) mediante enrutamiento acoplado a la cámara (`aligned_edge` routing).
+  * **Control Temporal Escalar y Vectorial:**
+    * `tiempo_escritura (float)`: Duración específica para el `Write` inicial de la primera ecuación o encabezado.
+    * `tiempo_transformacion` / `tiempo_replacement_transform` (float) o `tiempos_transformacion` (list[float]): Duración de las interpolaciones algebraicas (`ReplacementTransform` o `TransformMatchingShapes`). Permite asignar duraciones heterogéneas paso a paso (`[t_1, t_2, ...]`).
+    * `tiempo_espera` / `tiempo_pantalla` / `tiempo_entre_pasos` (float) o `tiempos_espera` (list[float]): Tiempo de permanencia y lectura en pantalla tras cada paso (`[w_1, w_2, ...]`).
+    * *Regla de auto-extensión:* Si la lista provista en `tiempos_transformacion` o `tiempos_espera` contiene menos elementos que pasos a ejecutar, el motor replica automáticamente el último valor hasta cubrir la totalidad de la secuencia.
+    * `remover_al_final (bool)`: Si es `True`, desvanece el HUD al concluir el último paso con `FadeOut`. Si es `False`, el HUD permanece visible en la escena.
+
+* **`animar_algebra(fuente_o_texto: str, posicion: str | None = None, remover_al_final: bool = False, tiempo_transformacion: float = 1.0, tiempo_espera: float = 1.0, tiempos_transformacion: list[float] | None = None, tiempos_espera: list[float] | None = None, tiempo_escritura: float | None = None, id: str | None = None) -> self`**
+Método unificado polimórfico del lector de álgebra. Detecta automáticamente si la posición es de esquina (`"UL"`, `"UR"`, `"DL"`, `"DR"`) para derivar a `agregar_algebra_flotante`, o si es central / pantalla completa (`None`, `"center"`, `"fullscreen"`) para derivar a `insertar_algebra`.
+  * *Aliases:* `procesar_algebra`, `reproducir_algebra`, `mostrar_algebra`.
+
+* **`transformar_algebra_flotante(id_origen: str, nuevo_texto: str, posicion: str = "UL", id_destino: str | None = None, tiempo_animacion: float = 1.5, tiempo_espera: float = 0.0, animacion: str = "TransformMatchingShapes") -> self`**
+Mutación directa in-place de un HUD registrado previamente en la escena por su `id`. Transforma directamente el mobject origen hacia una nueva tarjeta LaTeX sin requerir ciclos secuenciales de escritura (`Write`) ni parpadeos.
+  * *Aliases:* `mutar_algebra_flotante`, `actualizar_algebra_flotante`.
 
 ### 2.4. Métodos de Purga y Ciclo de Vida (Lifecycle & Deletion)
 
@@ -253,4 +268,175 @@ T_HUD_ANIM = 0.5
 T_HUD_ESPERA = 0.2
 T_CONVERGENCIA_ANIM = 1.0
 T_CONVERGENCIA_ESPERA = 0.2
-```
+```
+
+---
+
+### 5.5. Control de Ritmo y Escalado para Formato Corto (`Plantillas/Short/tiempo.py`)
+
+Para producciones en formato de video vertical corto (**Shorts / Reels / TikTok**), el sistema dispone del módulo `tiempo.py` que calcula la duración máxima y es capaz de **escalar armónicamente la cadencia** de cada paso para encajar un número de iteraciones en un tiempo límite deseado (por ejemplo, exactamente $60.0\,\text{s}$):
+
+```python
+from Plantillas.Short.tiempo import (
+    calcular_tiempo_maximo,
+    desglosar_tiempo_maximo,
+    verificar_duracion_short,
+    calcular_vector_tiempos
+)
+
+# 1. Cálculo directo del tiempo total máximo (segundos)
+t_max = calcular_tiempo_maximo("biseccion", max_iteraciones=3) # -> 55.5s
+
+# 2. Vector de tiempos escalados para encajar 4 iteraciones en 60 segundos
+vector_bis = calcular_vector_tiempos("biseccion", max_iteraciones=4, tiempo_deseado=60.0)
+print(list(vector_bis))          # [0.42, 0.08, 0.84, 0.84, 0.42, 0.84, ...]
+print(vector_bis.T_HUD_ANIM)     # 0.84s (acceso por clave)
+print(vector_bis.tiempo_estimado) # 59.8s
+
+# 3. Vector para todos los métodos a la vez
+vectores = calcular_vector_tiempos("todos", max_iteraciones=4, tiempo_deseado=60.0)
+v_rf = vectores["regla_falsa"]
+v_nr = vectores["newton_raphson"]
+
+# 4. Validación contra el límite de 60 segundos
+resultado = verificar_duracion_short("newton_raphson", max_iteraciones=3, limite_segundos=60.0)
+print(resultado["es_apto_short"])   # True (58.4s)
+print(resultado["margen_restante"])  # 1.6s
+```
+
+---
+
+### 5.6. Generador Automatizado de Código Manim para Shorts (`Plantillas/Short/generador_short.py`)
+
+Ubicado en la carpeta `Plantillas/Short/`, este módulo construye dinámicamente scripts ejecutables de Manim listos para producción:
+- **Derivación simbólica automática**: Para Newton-Raphson, calcula automáticamente $f'(x)$ usando SymPy y formatea el código en Python puro (`math.exp`, `math.cos`, etc.) y en LaTeX para el HUD visual.
+- **Inyección de cadencia calculada**: Invoca `calcular_vector_tiempos()` para inyectar las constantes escaladas exactas en la cabecera del código.
+- **Soporte CLI y API**: Puede ejecutarse desde la terminal o consumirse desde el servidor web:
+
+```bash
+# Ejecución vía línea de comandos
+python Plantillas/Short/generador_short.py --metodo biseccion --tiempo 60 --iteraciones 4 --funcion "exp(x) - 3*(x**2)"
+```
+
+Uso desde Python:
+```python
+from Plantillas.Short import generar_codigo_short
+
+res = generar_codigo_short(
+    metodo="newton_raphson",
+    funcion="x**3 - x - 2",
+    tiempo_deseado=45.0,
+    max_iteraciones=4,
+    x0=1.5,
+    save_to_main=True  # Escribe directamente en main.py
+)
+
+print(f"Duración estimada: {res['tiempo_estimado']}s | Factor: {res['factor_escalado']}x")
+```
+
+---
+
+### 5.7. Creador Visual de Shorts en Manim Studio Web (`view-short`)
+
+En la interfaz web de **Manim Studio**, dentro del **Panel de Control &rarr; Vistas de Trabajo**, se encuentra la subpágina **Creador de Shorts** (`#view-short`):
+
+1. **Selección de Método Numérico**: Tarjetas visuales de alto contraste para elegir entre **Bisección**, **Regla Falsa** y **Newton-Raphson**, con insignias de convergencia y fórmulas matemáticas.
+2. **Control de Tiempo y Cadencia**:
+   - Chips rápidos de presets: `15s Micro`, `30s Reels`, `45s Fluido`, `60s Shorts Max`.
+   - Control deslizante interactivo con indicador de rango de $10\,\text{s}$ a $120\,\text{s}$.
+3. **Función Objetivo y Parámetros Contextuales**:
+   - Entrada de fórmulas en sintaxis Python (`exp(x) - 3*x**2`, `x**3 - x - 2`, etc.).
+   - Chips de plantillas clásicas para autocompletado en 1 clic.
+   - Renderizado en vivo con KaTeX de $f(x)$ y de la derivada analítica $f'(x)$.
+   - Campos dinámicos: Intervalo $[a, b]$ para Bisección/Regla Falsa o Punto Inicial $x_0$ para Newton-Raphson.
+4. **Número de Iteraciones**: Selector deslizante de 1 a 8 iteraciones.
+5. **Panel de Diagnóstico Temporal en Tiempo Real**:
+   - Medidor heroico central de duración estimada.
+   - Insignia de compatibilidad: `⚡ APTO SHORT (<= 60s)` o `⚠️ EXCEDE LÍMITE SHORT`.
+   - Etiqueta de velocidad de cadencia (ej. `0.84x Ágil`).
+   - Barra de distribución temporal visual (Setup, Puntos iniciales, Iteraciones, Cierre).
+   - Nube de constantes de tiempo ($T$) escaladas.
+6. **Acciones Integradas**:
+   - **⚡ Cargar en Editor (main.py)**: Guarda el código en `main.py`, actualiza el editor Ace y cambia a la vista de animación manual.
+   - **▶ Renderizar Short Directo**: Compila y transmite los logs en vivo vía SSE hacia la consola y el reproductor de video.
+   - **📋 Copiar Código**: Copia el script completo al portapapeles.
+
+---
+
+### 5.8. Modulación Granular de Pasos y Visualización en el HUD de Plantillas (Análisis Numérico y Serie de Taylor)
+
+El motor algebraico (`Algebra/algebra.py`) integra una función de resolución temporal (`_resolver_tiempos`) que es **totalmente extrapolable, compatible e intercambiable** con las llamadas del HUD superior izquierdo (`posicion="UL"`) implementadas en las plantillas de `Plantillas/Análisis numérico/` y `Plantillas/Cálculo diferencial/Serie de Taylor.py`.
+
+Cada bloque multilínea de texto delimitado por `$$` pasado a `escena.agregar_algebra_flotante()` es descompuesto automáticamente por el lector en una secuencia de **pasos atómicos**:
+
+#### A. Mapeo en Plantillas de Análisis Numérico (Bisección, Regla Falsa, Newton-Raphson)
+En cada iteración del bucle numérico se genera un bloque LaTeX compuesto por 4 pasos secuenciales:
+1. `Paso 0 (Inicial): $$\text{Iteración: } i$$` (Identificador de iteración, renderizado mediante `Write`)
+2. `Paso 1: $$c_i = \dots$$` o `$$x_{i+1} = \dots$$` (Sustitución analítica)
+3. `Paso 2: $$f(c_i) \approx \dots$$` o `$$x_i \approx \dots$$` (Evaluación numérica)
+4. `Paso 3: $$\text{Error: } \dots$$` (Cálculo del error relativo)
+
+Por defecto, las plantillas emplean las constantes globales escalares `T_HUD_ANIM` y `T_HUD_ESPERA`:
+```python
+escena.agregar_algebra_flotante(
+    texto_hud, posicion="UL", remover_al_final=True, 
+    tiempo_animacion=T_HUD_ANIM, tiempo_espera=T_HUD_ESPERA
+)
+```
+
+**Extrapolación con tiempos diferenciados por paso:**
+Para variar de manera precisa la velocidad de escritura del encabezado, el tiempo de transformación de cada línea matemática y el tiempo de permanencia/lectura en pantalla de cada resultado, basta sustituir las constantes por los parámetros vectoriales soportados nativamente por el motor:
+
+```python
+# Ejemplo: Control granular paso a paso en Bisección / Regla Falsa / Newton-Raphson
+escena.agregar_algebra_flotante(
+    texto_hud,
+    posicion="UL",
+    remover_al_final=True,
+    tiempo_escritura=0.5,                       # Escritura rápida del título 'Iteración: i'
+    tiempos_transformacion=[0.5, 1.2, 0.8, 0.5], # [Título, Sustitución analítica, Evaluación funcional, Error]
+    tiempos_espera=[0.3, 1.5, 1.0, 2.5]         # Permite leer con calma la sustitución (1.5s) y el error final (2.5s)
+)
+```
+
+#### B. Mapeo en la Plantilla de Cálculo Diferencial (Serie de Taylor)
+En `Plantillas/Cálculo diferencial/Serie de Taylor.py`, cada ciclo de construcción del polinomio genera 2 pasos algebraicos:
+1. `Paso 0 (Inicial): $$\text{Grado: } i$$`
+2. `Paso 1: $$T_{i}(x) = \dots$$` (Polinomio de Taylor acumulado)
+
+**Extrapolación en Serie de Taylor:**
+```python
+# Modulación temporal en Serie de Taylor:
+escena.agregar_algebra_flotante(
+    texto_hud,
+    posicion="UL",
+    remover_al_final=True,
+    tiempo_escritura=0.4,                 # Escritura concisa del grado
+    tiempos_transformacion=[0.4, 1.0],    # 1.0s para la metamorfosis del polinomio completo
+    tiempos_espera=[0.2, 2.0]             # Deja visible el polinomio resultante durante 2.0s para apreciarlo
+)
+```
+
+#### C. Mutación In-Place Persistente sin Re-escritura (Alternativa Avanzada)
+Si se requiere que el HUD permanezca fijo en la esquina sin destruirse ni re-escribirse en cada ciclo del bucle, se puede registrar con un identificador persistente (`id="hud_metodo"`) y mutarlo dinámicamente mediante `transformar_algebra_flotante`:
+```python
+# Iteración 1: Creación del HUD persistente (remover_al_final=False)
+if i == 1:
+    escena.agregar_algebra_flotante(
+        texto_hud, posicion="UL", remover_al_final=False, 
+        id="hud_metodo", tiempo_animacion=1.0, tiempo_espera=1.0
+    )
+else:
+    # Iteraciones subsiguientes: Metamorfosis directa de la tarjeta en pantalla
+    escena.transformar_algebra_flotante(
+        id_origen="hud_metodo",
+        nuevo_texto=texto_hud,
+        posicion="UL",
+        tiempo_animacion=0.8,
+        tiempo_espera=1.2,
+        animacion="TransformMatchingShapes"
+    )
+```
+
+
+

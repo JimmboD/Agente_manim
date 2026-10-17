@@ -12,6 +12,21 @@ A_EXPANSION = 0.0       # Centro de la serie (0.0 = Maclaurin)
 NUM_TERMINOS = 10       # Hasta qué derivada calcular
 # ==========================================
 
+# ==========================================
+# VECTOR DE TIEMPOS ESTÁNDAR
+# ==========================================
+ESCALA_TIEMPO = 1.0
+
+TIEMPOS_BASE = {
+    "PUNTO_ANCLA": 0.5,
+    "HUD_ANIM": 1.0,
+    "HUD_ESPERA": 0.5,
+    "FUNCION_INI_ANIM": 1.0,
+    "TRANSFORMAR_ANIM": 1.5,
+    "FINAL_ANIM": 2.0
+}
+T = {clave: valor * ESCALA_TIEMPO for clave, valor in TIEMPOS_BASE.items()}
+
 # Puente entre el mundo simbólico y el motor geométrico
 def f_objetivo(x: float) -> float:
     return float(f_expr.subs(x_sym, x))
@@ -27,7 +42,7 @@ if __name__ == "__main__":
     
     # 2. PUNTO DE EXPANSIÓN (Anclaje estático Blanco)
     y_anclaje = f_objetivo(A_EXPANSION)
-    escena.agregar_punto(A_EXPANSION, y_anclaje, color="#FFFFFF", id="punto_ancla", tiempo_animacion=0.5)
+    escena.agregar_punto(A_EXPANSION, y_anclaje, color="#FFFFFF", id="punto_ancla", tiempo_animacion=T["PUNTO_ANCLA"])
 
     taylor_expr = 0
     grado_mostrado = 0
@@ -54,20 +69,20 @@ if __name__ == "__main__":
         $$\\text{{Grado: }} {i}$$
         $$T_{{{i}}}(x) = {str_taylor}$$
         """
-        escena.agregar_algebra_flotante(texto_hud, posicion="UL", remover_al_final=True, tiempo_animacion=1.0, tiempo_espera=0.5)
+        escena.agregar_algebra_flotante(texto_hud, posicion="UL", remover_al_final=True, tiempo_animacion=T["HUD_ANIM"], tiempo_espera=T["HUD_ESPERA"])
         
         # 4. MORPHING ÚNICO DE LA CURVA AMARILLA
         if grado_mostrado == 0:
             # En la primera vuelta, la función nace
-            escena.agregar_funcion(f_taylor, color="#FFFF00", id="taylor_act", tiempo_animacion=1.0)
+            escena.agregar_funcion(f_taylor, color="#FFFF00", id="taylor_act", tiempo_animacion=T["FUNCION_INI_ANIM"])
         else:
             # En las siguientes, la MISMA función se deforma in-place
             escena.transformar_objeto(
                 origen="taylor_act", tipo_destino="funcion", funcion=f_taylor, 
-                color="#FFFF00", id_destino="taylor_act", tiempo_animacion=1.5
+                color="#FFFF00", id_destino="taylor_act", tiempo_animacion=T["TRANSFORMAR_ANIM"]
             )
             
         grado_mostrado += 1
         
-    escena.desvanecer_todo(tiempo_animacion=2.0)
+    escena.desvanecer_todo(tiempo_animacion=T["FINAL_ANIM"])
     escena.render(previsualizar=True)

@@ -13,6 +13,8 @@ import subprocess
 import threading
 import queue
 import mimetypes
+import importlib.util
+import random
 from urllib.parse import urlparse, parse_qs
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 
@@ -23,6 +25,21 @@ AUDIO_DIR = os.path.join(BASE_DIR, "audios")
 os.makedirs(AUDIO_DIR, exist_ok=True)
 MAIN_PY_PATH = os.path.join(BASE_DIR, "main.py")
 PASOS_ALGEBRAICOS_PATH = os.path.join(BASE_DIR, "pasos_algebraicos.txt")
+PLANTILLAS_DIR = os.path.join(BASE_DIR, "Plantillas")
+
+TEMPLATE_MAP = {
+    "regla_falsa": os.path.join("Plantillas", "Análisis numérico", "Regla falsa.py"),
+    "biseccion": os.path.join("Plantillas", "Análisis numérico", "Bisección.py"),
+    "newton_raphson": os.path.join("Plantillas", "Análisis numérico", "Newton-Raphson.py"),
+    "derivada_limite": os.path.join("Plantillas", "Cálculo diferencial", "Derivada límite.py"),
+    "serie_taylor": os.path.join("Plantillas", "Cálculo diferencial", "Serie de Taylor.py"),
+    "integral": os.path.join("Plantillas", "Cálculo diferencial", "Integral.py"),
+    "curva_polinomica": os.path.join("Plantillas", "Álgebra y geometría", "Curva polinómica.py"),
+    "hud_algebra": os.path.join("Plantillas", "Álgebra y geometría", "HUD álgebra.py"),
+    "pasos_algebraicos": os.path.join("Plantillas", "Álgebra y geometría", "Pasos algebráicos.txt"),
+    "serie_fourier": os.path.join("Plantillas", "Ecuaciones diferenciales", "Serie de Fourier.py"),
+    "purga_ciclo_vida": os.path.join("Plantillas", "Control y ciclo de vida", "Purga ciclo de vida.py"),
+}
 
 # Suscriptores de Server-Sent Events (SSE)
 sse_subscribers = []
@@ -68,7 +85,127 @@ def get_media_duration(file_path):
     except Exception:
         return 0.0
 
+_generador_ejercicios_mod = None
+
+def obtener_generador_ejercicios():
+    global _generador_ejercicios_mod
+    if _generador_ejercicios_mod is None:
+        ruta = os.path.join(BASE_DIR, "Generador de ejercicios", "Analisis numerico.py")
+        if not os.path.isfile(ruta):
+            raise FileNotFoundError(f"No se encontró el script generador en: {ruta}")
+        spec = importlib.util.spec_from_file_location("generador_ejercicios_analisis_num", ruta)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        _generador_ejercicios_mod = mod
+    return _generador_ejercicios_mod
+
 class ManimStudioHandler(BaseHTTPRequestHandler):
+    def handle_random_exercise(self, metodo_param=""):
+        try:
+            if metodo_param and ("taylor" in metodo_param.lower() or "serie" in metodo_param.lower()):
+                import sympy as sp
+                x = sp.Symbol('x')
+                candidatos_taylor = [
+                    sp.sin(x),
+                    sp.cos(x),
+                    sp.exp(x),
+                    sp.exp(-x**2),
+                    sp.sin(2*x),
+                    sp.cos(2*x),
+                    sp.cos(x) - x,
+                    x * sp.exp(x),
+                    1 / (1 + x**2)
+                ]
+                f_final = random.choice(candidatos_taylor)
+                x0 = float(random.choice([-1.0, 0.0, 1.0]))
+                res = {
+                    "status": "success",
+                    "metodo_id": "serie_taylor",
+                    "metodo_nombre": "Serie de Taylor",
+                    "funcion": str(f_final),
+                    "latex": sp.latex(f_final),
+                    "a": -3.0,
+                    "b": 3.0,
+                    "x0": x0,
+                    "x_min": -6.0,
+                    "x_max": 6.0,
+                    "raiz_objetiva": 0.0,
+                    "parametros": f"Centro de expansión x₀: {x0}"
+                }
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json; charset=utf-8")
+                self.send_cors_headers()
+                self.end_headers()
+                self.wfile.write(json.dumps(res).encode("utf-8"))
+                return
+
+            metodo_gen = None
+            if metodo_param:
+                m_norm = metodo_param.lower().replace("-", "_").replace(" ", "_")
+                if "bisecc" in m_norm:
+                    metodo_gen = "Bisección"
+                elif "regla" in m_norm or "falsa" in m_norm:
+                    metodo_gen = "Regla Falsa"
+                elif "newton" in m_norm or "raphson" in m_norm:
+                    metodo_gen = "Newton-Raphson"
+                else:
+                    metodo_gen = None
+
+            mod = obtener_generador_ejercicios()
+            ejercicio = mod.generar_ejercicio(metodo_gen)
+
+            m_res = ejercicio["metodo"]
+            if "Bisecc" in m_res:
+                metodo_id = "biseccion"
+            elif "Regla" in m_res:
+                metodo_id = "regla_falsa"
+            elif "Newton" in m_res:
+                metodo_id = "newton_raphson"
+            else:
+                metodo_id = "biseccion"
+
+            ecuacion_str = str(ejercicio["ecuacion"])
+            latex_str = ejercicio.get("latex", "")
+            raiz_objetiva = round(float(ejercicio.get("raiz_objetiva", 0.0)), 4)
+
+            if metodo_id in ["biseccion", "regla_falsa"]:
+                vals = ejercicio["valores_iniciales"]
+                a = round(float(vals[0]), 2)
+                b = round(float(vals[1]), 2)
+                x0 = round((a + b) / 2.0, 2)
+                x_min = round(min(a, b, raiz_objetiva) - 1.5, 1)
+                x_max = round(max(a, b, raiz_objetiva) + 1.5, 1)
+            else:
+                x0 = round(float(ejercicio["valores_iniciales"]), 2)
+                a = round(x0 - 1.5, 2)
+                b = round(x0 + 1.5, 2)
+                x_min = round(min(x0, raiz_objetiva) - 1.5, 1)
+                x_max = round(max(x0, raiz_objetiva) + 1.5, 1)
+
+            res = {
+                "status": "success",
+                "metodo_id": metodo_id,
+                "metodo_nombre": m_res,
+                "funcion": ecuacion_str,
+                "latex": latex_str,
+                "a": a,
+                "b": b,
+                "x0": x0,
+                "x_min": x_min,
+                "x_max": x_max,
+                "raiz_objetiva": raiz_objetiva,
+                "parametros": ejercicio.get("parametros", "")
+            }
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_cors_headers()
+            self.end_headers()
+            self.wfile.write(json.dumps(res).encode("utf-8"))
+        except Exception as e:
+            self.send_response(500)
+            self.send_cors_headers()
+            self.end_headers()
+            self.wfile.write(json.dumps({"error": str(e)}).encode("utf-8"))
     def log_message(self, format, *args):
         pass
 
@@ -163,6 +300,59 @@ class ManimStudioHandler(BaseHTTPRequestHandler):
             self.wfile.write(json.dumps({"content": readme_content}).encode("utf-8"))
             return
 
+        # 2c. Obtener plantilla matemática directamente desde la carpeta Plantillas
+        if path == "/api/get_template":
+            query = parse_qs(parsed.query)
+            template_id = query.get("id", [""])[0].strip()
+            req_file = query.get("file", [""])[0].strip()
+
+            file_path = None
+            if template_id in TEMPLATE_MAP:
+                candidate = os.path.normpath(os.path.join(BASE_DIR, TEMPLATE_MAP[template_id]))
+                if os.path.isfile(candidate):
+                    file_path = candidate
+
+            if not file_path and req_file:
+                clean_rel = req_file.lstrip("/\\").replace("\\", "/")
+                candidate = os.path.normpath(os.path.join(BASE_DIR, "Plantillas", clean_rel))
+                if os.path.isfile(candidate):
+                    file_path = candidate
+
+            if not file_path and template_id:
+                clean_id = template_id.lower().replace("-", "_").replace(" ", "_")
+                for root, dirs, files in os.walk(os.path.join(BASE_DIR, "Plantillas")):
+                    for f in files:
+                        f_stem = os.path.splitext(f)[0].lower().replace("-", "_").replace(" ", "_")
+                        if f_stem == clean_id:
+                            file_path = os.path.join(root, f)
+                            break
+                    if file_path:
+                        break
+
+            if not file_path or not os.path.isfile(file_path):
+                self.send_response(404)
+                self.send_cors_headers()
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": f"Plantilla '{template_id}' no encontrada en la carpeta Plantillas/"}).encode("utf-8"))
+                return
+
+            with open(file_path, "r", encoding="utf-8") as f:
+                code = f.read()
+
+            rel_p = "/" + os.path.relpath(file_path, BASE_DIR).replace("\\", "/")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_cors_headers()
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "status": "success",
+                "code": code,
+                "template_id": template_id,
+                "filename": os.path.basename(file_path),
+                "path": rel_p
+            }).encode("utf-8"))
+            return
+
         # 3. Obtener último video generado
         if path == "/api/latest_video":
             self.send_response(200)
@@ -171,6 +361,13 @@ class ManimStudioHandler(BaseHTTPRequestHandler):
             self.end_headers()
             vid = find_latest_video()
             self.wfile.write(json.dumps({"video_url": vid}).encode("utf-8"))
+            return
+
+        # 3c. Generador de ejercicio aleatorio para Shorts (Ruleta o por método)
+        if path == "/api/short/random_exercise":
+            query = parse_qs(parsed.query)
+            metodo_param = query.get("metodo", [""])[0].strip()
+            self.handle_random_exercise(metodo_param)
             return
 
         # 3b. Obtener lista de audios disponibles en el servidor
@@ -240,6 +437,7 @@ class ManimStudioHandler(BaseHTTPRequestHandler):
             self.send_response(200)
             self.send_header("Content-Type", f"{mime}; charset=utf-8")
             self.send_header("Content-Length", str(len(content)))
+            self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
             self.send_cors_headers()
             self.end_headers()
             self.wfile.write(content)
@@ -489,6 +687,95 @@ class ManimStudioHandler(BaseHTTPRequestHandler):
             self.send_cors_headers()
             self.end_headers()
             self.wfile.write(json.dumps({"status": "started", "message": f"Ejecutando {target_file}...", "file": target_file}).encode("utf-8"))
+            return
+
+        # 1d. Cálculo analítico de tiempos para Short
+        if path == "/api/short/calculate":
+            try:
+                data = json.loads(body.decode("utf-8")) if body else {}
+                metodo = data.get("metodo", "biseccion")
+                max_iter = int(data.get("max_iteraciones", 4))
+                tiempo_deseado = float(data.get("tiempo_deseado", 60.0))
+                
+                from Plantillas.Short import calcular_vector_tiempos, verificar_duracion_short
+                
+                vector = calcular_vector_tiempos(metodo=metodo, max_iteraciones=max_iter, tiempo_deseado=tiempo_deseado)
+                verif = verificar_duracion_short(metodo=metodo, max_iteraciones=max_iter, tiempos=vector.to_dict(), limite_segundos=60.0)
+                
+                res = {
+                    "status": "success",
+                    "metodo": metodo,
+                    "max_iteraciones": max_iter,
+                    "tiempo_objetivo": tiempo_deseado,
+                    "tiempo_estimado": vector.tiempo_estimado,
+                    "factor_escalado": vector.factor_escalado,
+                    "claves": vector.claves,
+                    "vector": list(vector),
+                    "mapa": vector.to_dict(),
+                    "desglose": verif
+                }
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json; charset=utf-8")
+                self.send_cors_headers()
+                self.end_headers()
+                self.wfile.write(json.dumps(res).encode("utf-8"))
+            except Exception as e:
+                self.send_response(500)
+                self.send_cors_headers()
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": str(e)}).encode("utf-8"))
+            return
+
+        # 1e. Generación completa de código Manim para Short
+        if path == "/api/short/generate":
+            try:
+                data = json.loads(body.decode("utf-8")) if body else {}
+                metodo = data.get("metodo", "biseccion")
+                funcion = data.get("funcion", "exp(x) - 3*(x**2)")
+                tiempo_deseado = float(data.get("tiempo_deseado", 60.0))
+                max_iter = int(data.get("max_iteraciones", 4))
+                a = float(data.get("a", 0.0))
+                b = float(data.get("b", 1.5))
+                x0 = float(data.get("x0", 1.5))
+                x_min = float(data.get("x_min", -0.5))
+                x_max = float(data.get("x_max", 2.0))
+                tolerancia = float(data.get("tolerancia", 0.0001))
+                save_to_main = bool(data.get("save_to_main", False))
+
+                from Plantillas.Short import generar_codigo_short
+                res = generar_codigo_short(
+                    metodo=metodo,
+                    funcion=funcion,
+                    tiempo_deseado=tiempo_deseado,
+                    max_iteraciones=max_iter,
+                    a=a, b=b, x0=x0,
+                    x_min=x_min, x_max=x_max,
+                    tolerancia=tolerancia,
+                    save_to_main=save_to_main,
+                    ruta_main=MAIN_PY_PATH
+                )
+
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json; charset=utf-8")
+                self.send_cors_headers()
+                self.end_headers()
+                self.wfile.write(json.dumps(res).encode("utf-8"))
+            except Exception as e:
+                self.send_response(500)
+                self.send_cors_headers()
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": str(e)}).encode("utf-8"))
+            return
+
+        # 1f. Generar ejercicio aleatorio (POST)
+        if path == "/api/short/random_exercise":
+            metodo_param = ""
+            try:
+                data = json.loads(body.decode("utf-8")) if body else {}
+                metodo_param = data.get("metodo", "").strip()
+            except Exception:
+                pass
+            self.handle_random_exercise(metodo_param)
             return
 
         self.send_error(404, "Endpoint POST no encontrado")

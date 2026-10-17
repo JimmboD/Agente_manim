@@ -30,823 +30,12 @@ const state = {
 };
 
 // ==========================================================================
-// 1. PLANTILLAS MATEMÁTICAS PREDISEÑADAS
+// 1. GESTIÓN DE PLANTILLAS
+// El código de las plantillas se carga dinámicamente desde las carpetas del
+// proyecto (Plantillas/Análisis numérico, Plantillas/Cálculo diferencial, etc.)
+// a través del endpoint /api/get_template, asegurando sincronización con el disco.
 // ==========================================================================
-const TEMPLATES = {
-  regla_falsa: `import math
-from Planos.generar_plano import AnimadorGrafico
-
-# ==========================================
-# CONFIGURACIÓN DE LA ANIMACIÓN (REGLA FALSA)
-# ==========================================
-def f_objetivo(x: float) -> float:
-    return math.exp(x) - 3 * (x**2)
-
-LABEL_FUNCION = r"$$f(x) = e^x - 3x^2$$"
-A_INICIAL = 0.0
-B_INICIAL = 1.5
-TOLERANCIA = 0.0001
-MAX_ITERACIONES = 4
-
-# ==========================================
-# CONFIGURACIÓN DE TIEMPOS DE ANIMACIÓN (POR PASOS)
-# NOTA: Los siguientes valores representan el ritmo estándar predeterminado.
-# Deben mantenerse con estos valores predefinidos y modificarse ÚNICAMENTE 
-# cuando el usuario o una indicación explícita lo solicite.
-# ==========================================
-# Paso 0: Puntos iniciales del intervalo [a, b]
-T_PUNTOS_INI_ANIM = 0.5
-T_PUNTOS_INI_ESPERA = 0.1
-
-# Paso 1: Trazado de la recta secante inicial (primera iteración)
-T_SECANTE_INI_ANIM = 1.0
-T_SECANTE_INI_ESPERA = 1.0
-
-# Paso 2: Despliegue de cálculos algebraicos en HUD
-T_HUD_ANIM = 1.0
-T_HUD_ESPERA = 1.0
-
-# Paso 3: Proyección del punto raíz al eje X (marca y línea guía)
-T_PROY_PUNTO_ANIM = 0.5
-T_PROY_PUNTO_ESPERA = 1.0
-T_PROY_LINEA_ANIM = 0.8
-T_PROY_LINEA_ESPERA = 1.0
-
-# Paso 4: Limpieza de guías visuales temporales (línea punteada y punto)
-T_LIMPIEZA_LINEA_ANIM = 0.5
-T_LIMPIEZA_LINEA_ESPERA = 0.1
-T_LIMPIEZA_PUNTO_ANIM = 0.5
-T_LIMPIEZA_PUNTO_ESPERA = 0.2
-
-# Paso 5: Convergencia paramétrica (la secante y punto conducen a la nueva raíz)
-T_CONVERGENCIA_ANIM = 2.0
-T_CONVERGENCIA_ESPERA = 1.0
-
-# Paso 6: Cierre y desvanecimiento final de la escena
-T_FINAL_ANIM = 2.0
-T_FINAL_ESPERA = 1.0
-# ==========================================
-
-def generar_secante(x0, y0, x1, y1):
-    return lambda x: (y1 - y0) / (x1 - x0) * (x - x0) + y0 if abs(x1 - x0) > 1e-5 else y0
-
-if __name__ == "__main__":
-    
-    escena = AnimadorGrafico(f_objetivo, x_min=-0.5, x_max=2.0)
-    
-    # Etiqueta fija en la esquina inferior derecha
-    escena.agregar_algebra_flotante(LABEL_FUNCION, posicion="DR", remover_al_final=False)
-    
-    a, b = A_INICIAL, B_INICIAL
-    fa, fb = f_objetivo(a), f_objetivo(b)
-    c = b - fb * ((b - a) / (fb - fa))
-    
-    # ESTADO INICIAL
-    escena.agregar_punto(a, fa, color="#FFFF00", id="punto_A", tiempo_animacion=T_PUNTOS_INI_ANIM, tiempo_espera=T_PUNTOS_INI_ESPERA)
-    escena.agregar_punto(b, fb, color="#FFFF00", id="punto_B", tiempo_animacion=T_PUNTOS_INI_ANIM, tiempo_espera=T_PUNTOS_INI_ESPERA)
-    
-    error = 100.0
-    i = 1
-    
-    # El bucle se rompe si el error es menor a la tolerancia o se excede el límite de iteraciones
-    while error > TOLERANCIA and i <= MAX_ITERACIONES:
-        fc = f_objetivo(c)
-        
-        # 1. DIBUJAR SECANTE INICIAL (Solo en la primera iteración)
-        if i == 1:
-            escena.agregar_funcion(
-                generar_secante(a, fa, b, fb), color="#FFFF00", id="secante", 
-                tiempo_animacion=T_SECANTE_INI_ANIM, tiempo_espera=T_SECANTE_INI_ESPERA
-            )
-        
-        # 2. CÁLCULO ALGEBRAICO Y VISUALIZACIÓN DE ERROR
-        str_error = f"{error:.4f}\\\\%" if i > 1 else "\\\\text{N/A}"
-        texto_hud = f"""
-        $$\\\\text{{Iteración: }} {i}$$
-        $$x_{{{i}}} = {b:.4f} - f({b:.4f}) \\\\frac{{{b:.4f} - {a:.4f}}}{{f({b:.4f}) - f({a:.4f})}}$$
-        $$x_{{{i}}} \\\\approx {c:.4f}$$
-        $$\\\\text{{Error: }} {str_error}$$
-        """
-        escena.agregar_algebra_flotante(
-            texto_hud, posicion="UL", remover_al_final=True, 
-            tiempo_animacion=T_HUD_ANIM, tiempo_espera=T_HUD_ESPERA
-        )
-        
-        # 3. PROYECCIÓN Y MARCA DEL PUNTO RAÍZ BLANCO
-        escena.agregar_punto(
-            c, 0.0, color="#FFFFFF", label=False, id="punto_raiz", 
-            tiempo_animacion=T_PROY_PUNTO_ANIM, tiempo_espera=T_PROY_PUNTO_ESPERA
-        )
-        escena.animar_linea_punteada(
-            x1_ini=c, x1_fin=c, x2_ini=c, x2_fin=c, y1_ini=0.0, y2_ini=f_objetivo, 
-            color="#FFFFFF", id="proy_c", 
-            tiempo_animacion=T_PROY_LINEA_ANIM, tiempo_espera=T_PROY_LINEA_ESPERA
-        )
-        
-        # 4. ELIMINACIÓN DEL PUNTO BLANCO Y LA LÍNEA ANTES DEL MOVIMIENTO DE LA RECTA
-        escena.eliminar_objeto(
-            id="proy_c", animacion="Uncreate", 
-            tiempo_animacion=T_LIMPIEZA_LINEA_ANIM, tiempo_espera=T_LIMPIEZA_LINEA_ESPERA
-        )
-        escena.eliminar_objeto(
-            id="punto_raiz", animacion="FadeOut", 
-            tiempo_animacion=T_LIMPIEZA_PUNTO_ANIM, tiempo_espera=T_LIMPIEZA_PUNTO_ESPERA
-        )
-        
-        # 5. CÁLCULO DE SIGUIENTE ITERACIÓN Y MOVIMIENTO PARAMÉTRICO
-        if fa * fc < 0:
-            b_viejo = b
-            b, fb = c, fc
-            c_nuevo = b - fb * ((b - a) / (fb - fa))
-            
-            escena.animar_convergencia_parametrica(
-                funcion=f_objetivo, x_fijo=a, 
-                x_movil_ini=b_viejo, x_movil_fin=b,
-                id_secante="secante", id_punto_curva="punto_B", id_punto_raiz="punto_raiz",
-                tiempo_animacion=T_CONVERGENCIA_ANIM, tiempo_espera=T_CONVERGENCIA_ESPERA
-            )
-        else:
-            a_viejo = a
-            a, fa = c, fc
-            c_nuevo = b - fb * ((b - a) / (fb - fa))
-            
-            escena.animar_convergencia_parametrica(
-                funcion=f_objetivo, x_fijo=b, 
-                x_movil_ini=a_viejo, x_movil_fin=a,
-                id_secante="secante", id_punto_curva="punto_A", id_punto_raiz="punto_raiz",
-                tiempo_animacion=T_CONVERGENCIA_ANIM, tiempo_espera=T_CONVERGENCIA_ESPERA
-            )
-        
-        # 6. ACTUALIZACIÓN DE VARIABLES Y ERROR PARA EL BUCLE
-        error = abs((c_nuevo - c) / c_nuevo) * 100 if c_nuevo != 0 else 100
-        c = c_nuevo
-        i += 1
-        
-    escena.desvanecer_todo(tiempo_animacion=T_FINAL_ANIM, tiempo_espera=T_FINAL_ESPERA)
-    escena.render(previsualizar=True)
-`,
-
-  biseccion: `import math
-from Planos.generar_plano import AnimadorGrafico
-
-# ==========================================
-# CONFIGURACIÓN DE LA ANIMACIÓN (BISECCIÓN)
-# ==========================================
-def f_objetivo(x: float) -> float:
-    return math.exp(x) - 3 * (x**2)
-
-LABEL_FUNCION = r"$$f(x) = e^x - 3x^2$$"
-A_INICIAL = 0.0
-B_INICIAL = 1.5
-TOLERANCIA = 0.0001
-MAX_ITERACIONES = 4
-
-# ==========================================
-# CONFIGURACIÓN DE TIEMPOS DE ANIMACIÓN (POR PASOS)
-# NOTA: Los siguientes valores representan el ritmo estándar predeterminado.
-# Deben mantenerse con estos valores predefinidos y modificarse ÚNICAMENTE 
-# cuando el usuario o una indicación explícita lo solicite.
-# ==========================================
-# Paso 0: Puntos iniciales del intervalo [a, b]
-T_PUNTOS_INI_ANIM = 0.5
-T_PUNTOS_INI_ESPERA = 0.1
-
-# Paso 1: Despliegue de cálculos algebraicos en HUD
-T_HUD_ANIM = 1.0
-T_HUD_ESPERA = 1.0
-
-# Paso 2: Proyección del punto medio al eje X (marca y línea guía)
-T_PROY_PUNTO_ANIM = 0.5
-T_PROY_PUNTO_ESPERA = 1.0
-T_PROY_LINEA_ANIM = 0.8
-T_PROY_LINEA_ESPERA = 1.0
-
-# Paso 3: Limpieza de guías visuales temporales (línea punteada y punto)
-T_LIMPIEZA_LINEA_ANIM = 0.5
-T_LIMPIEZA_LINEA_ESPERA = 0.1
-T_LIMPIEZA_PUNTO_ANIM = 0.5
-T_LIMPIEZA_PUNTO_ESPERA = 0.2
-
-# Paso 4: Traslación del extremo sobre la curva hacia la nueva aproximación
-T_MOVIMIENTO_CURVA_ANIM = 1.5
-T_MOVIMIENTO_CURVA_ESPERA = 1.0
-
-# Paso 5: Cierre y desvanecimiento final de la escena
-T_FINAL_ANIM = 2.0
-T_FINAL_ESPERA = 1.0
-# ==========================================
-
-if __name__ == "__main__":
-    
-    escena = AnimadorGrafico(f_objetivo, x_min=-0.5, x_max=2.0)
-    
-    # Etiqueta fija en la esquina inferior derecha
-    escena.agregar_algebra_flotante(LABEL_FUNCION, posicion="DR", remover_al_final=False)
-    
-    a, b = A_INICIAL, B_INICIAL
-    fa, fb = f_objetivo(a), f_objetivo(b)
-    
-    # ESTADO INICIAL: Intervalo [a, b]
-    escena.agregar_punto(a, fa, color="#FFFF00", id="punto_A", tiempo_animacion=T_PUNTOS_INI_ANIM, tiempo_espera=T_PUNTOS_INI_ESPERA)
-    escena.agregar_punto(b, fb, color="#FFFF00", id="punto_B", tiempo_animacion=T_PUNTOS_INI_ANIM, tiempo_espera=T_PUNTOS_INI_ESPERA)
-    
-    error = 100.0
-    c_prev = a
-    i = 1
-    
-    # El bucle se repite mientras el error supere la tolerancia y no se excedan las iteraciones
-    while error > TOLERANCIA and i <= MAX_ITERACIONES:
-        # 1. CÁLCULO DEL PUNTO MEDIO
-        c = (a + b) / 2.0
-        fc = f_objetivo(c)
-        
-        # 2. CÁLCULO DE ERROR RELATIVO
-        if i > 1:
-            error = abs((c - c_prev) / c) * 100 if c != 0 else 100.0
-            str_error = f"{error:.4f}\\\\%"
-        else:
-            str_error = "\\\\text{N/A}"
-            
-        texto_hud = f"""
-        $$\\\\text{{Bisección - Iteración: }} {i}$$
-        $$c_{{{i}}} = \\\\frac{{{a:.4f} + {b:.4f}}}{{2}} = {c:.4f}$$
-        $$f(c_{{{i}}}) \\\\approx {fc:.4f}$$
-        $$\\\\text{{Error: }} {str_error}$$
-        """
-        escena.agregar_algebra_flotante(
-            texto_hud, posicion="UL", remover_al_final=True, 
-            tiempo_animacion=T_HUD_ANIM, tiempo_espera=T_HUD_ESPERA
-        )
-        
-        # 3. PROYECCIÓN Y MARCA DEL PUNTO MEDIO EN EL EJE X
-        escena.agregar_punto(
-            c, 0.0, color="#FFFFFF", label=False, id="punto_c", 
-            tiempo_animacion=T_PROY_PUNTO_ANIM, tiempo_espera=T_PROY_PUNTO_ESPERA
-        )
-        escena.animar_linea_punteada(
-            x1_ini=c, x1_fin=c, x2_ini=c, x2_fin=c, y1_ini=0.0, y2_ini=f_objetivo, 
-            color="#FFFFFF", id="proy_c", 
-            tiempo_animacion=T_PROY_LINEA_ANIM, tiempo_espera=T_PROY_LINEA_ESPERA
-        )
-        
-        # 4. ELIMINACIÓN DE LA PROYECCIÓN TEMPORAL
-        escena.eliminar_objeto(
-            id="proy_c", animacion="Uncreate", 
-            tiempo_animacion=T_LIMPIEZA_LINEA_ANIM, tiempo_espera=T_LIMPIEZA_LINEA_ESPERA
-        )
-        escena.eliminar_objeto(
-            id="punto_c", animacion="FadeOut", 
-            tiempo_animacion=T_LIMPIEZA_PUNTO_ANIM, tiempo_espera=T_LIMPIEZA_PUNTO_ESPERA
-        )
-        
-        # 5. ACTUALIZACIÓN DE LÍMITES Y TRASLACIÓN SOBRE LA CURVA
-        if fa * fc < 0:
-            b_viejo = b
-            b, fb = c, fc
-            # El extremo derecho B viaja sobre la curva hacia el punto medio c
-            escena.animar_punto_sobre_curva(
-                x_inicio=b_viejo, x_fin=b, funcion=f_objetivo, 
-                color="#FFFF00", id="punto_B", 
-                tiempo_animacion=T_MOVIMIENTO_CURVA_ANIM, tiempo_espera=T_MOVIMIENTO_CURVA_ESPERA
-            )
-        else:
-            a_viejo = a
-            a, fa = c, fc
-            # El extremo izquierdo A viaja sobre la curva hacia el punto medio c
-            escena.animar_punto_sobre_curva(
-                x_inicio=a_viejo, x_fin=a, funcion=f_objetivo, 
-                color="#FFFF00", id="punto_A", 
-                tiempo_animacion=T_MOVIMIENTO_CURVA_ANIM, tiempo_espera=T_MOVIMIENTO_CURVA_ESPERA
-            )
-            
-        c_prev = c
-        i += 1
-        
-    escena.desvanecer_todo(tiempo_animacion=T_FINAL_ANIM, tiempo_espera=T_FINAL_ESPERA)
-    escena.render(previsualizar=True)
-`,
-
-  newton_raphson: `import math
-from Planos.generar_plano import AnimadorGrafico
-
-# ==========================================
-# CONFIGURACIÓN DE LA ANIMACIÓN (NEWTON-RAPHSON)
-# ==========================================
-def f_objetivo(x: float) -> float:
-    return math.exp(x) - 3 * (x**2)
-
-def f_derivada(x: float) -> float:
-    return math.exp(x) - 6 * x
-
-LABEL_FUNCION = r"$$f(x) = e^x - 3x^2$$"
-X_INICIAL = 1.5
-TOLERANCIA = 0.0001
-MAX_ITERACIONES = 5
-
-# ==========================================
-# CONFIGURACIÓN DE TIEMPOS DE ANIMACIÓN (POR PASOS)
-# NOTA: Los siguientes valores representan el ritmo estándar predeterminado.
-# Deben mantenerse con estos valores predefinidos y modificarse ÚNICAMENTE 
-# cuando el usuario o una indicación explícita lo solicite.
-# ==========================================
-# Paso 0: Punto ancla inicial sobre la curva
-T_PUNTO_INI_ANIM = 0.5
-T_PUNTO_INI_ESPERA = 0.1
-
-# Paso 1: Trazado de la recta tangente inicial (primera iteración)
-T_TANGENTE_INI_ANIM = 1.0
-T_TANGENTE_INI_ESPERA = 1.0
-
-# Paso 2: Despliegue de cálculos algebraicos en HUD
-T_HUD_ANIM = 1.0
-T_HUD_ESPERA = 1.0
-
-# Paso 3: Proyección de la raíz estimada al eje X (marca y línea guía)
-T_PROY_PUNTO_ANIM = 0.5
-T_PROY_PUNTO_ESPERA = 1.0
-T_PROY_LINEA_ANIM = 0.8
-T_PROY_LINEA_ESPERA = 1.0
-
-# Paso 4: Transición paralela (rotación de tangente y traslación de punto sobre la curva)
-T_TRANSICION_PARALELO_ANIM = 2.0
-T_TRANSICION_PARALELO_ESPERA = 1.0
-
-# Paso 5: Limpieza de guías visuales temporales (línea punteada y punto)
-T_LIMPIEZA_LINEA_ANIM = 0.5
-T_LIMPIEZA_LINEA_ESPERA = 0.1
-T_LIMPIEZA_PUNTO_ANIM = 0.5
-T_LIMPIEZA_PUNTO_ESPERA = 0.2
-
-# Paso 6: Cierre y desvanecimiento final de la escena
-T_FINAL_ANIM = 2.0
-T_FINAL_ESPERA = 1.0
-# ==========================================
-
-def generar_tangente(x0, y0, m):
-    # En Newton-Raphson la pendiente 'm' viene de la derivada exacta
-    return lambda x: m * (x - x0) + y0
-
-if __name__ == "__main__":
-    
-    escena = AnimadorGrafico(f_objetivo, x_min=-0.5, x_max=2.0)
-    
-    # Etiqueta fija en la esquina inferior derecha
-    escena.agregar_algebra_flotante(LABEL_FUNCION, posicion="DR", remover_al_final=False)
-    
-    x_act = X_INICIAL
-    y_act = f_objetivo(x_act)
-    
-    # 1. ESTADO INICIAL: Punto ancla en la curva (Color Amarillo)
-    escena.agregar_punto(
-        x_act, y_act, color="#FFFF00", id="punto_n", 
-        tiempo_animacion=T_PUNTO_INI_ANIM, tiempo_espera=T_PUNTO_INI_ESPERA
-    )
-    
-    error = 100.0
-    i = 1
-    
-    # Bucle regido por tolerancia o límite de iteraciones
-    while error > TOLERANCIA and i <= MAX_ITERACIONES:
-        m_act = f_derivada(x_act)
-        x_next = x_act - (y_act / m_act)
-        y_next = f_objetivo(x_next)
-        
-        # 2. TRAZADO DE LA TANGENTE (Solo se instancia en iteración 1, luego se transforma)
-        if i == 1:
-            escena.agregar_funcion(
-                generar_tangente(x_act, y_act, m_act), color="#FFFF00", id="tangente", 
-                tiempo_animacion=T_TANGENTE_INI_ANIM, tiempo_espera=T_TANGENTE_INI_ESPERA
-            )
-            
-        # 3. CÁLCULO ALGEBRAICO Y VISUALIZACIÓN EN HUD
-        str_error = f"{error:.4f}\\\\%" if i > 1 else "\\\\text{N/A}"
-        texto_hud = f"""
-        $$\\\\text{{Iteración: }} {i}$$
-        $$x_{{{i}}} = {x_act:.4f} - \\\\frac{{f({x_act:.4f})}}{{f'({x_act:.4f})}}$$
-        $$x_{{{i}}} \\\\approx {x_next:.4f}$$
-        $$\\\\text{{Error: }} {str_error}$$
-        """
-        escena.agregar_algebra_flotante(
-            texto_hud, posicion="UL", remover_al_final=True, 
-            tiempo_animacion=T_HUD_ANIM, tiempo_espera=T_HUD_ESPERA
-        )
-        
-        # 4. MARCA DE LA RAÍZ PROYECTADA EN EL EJE X (Blanco)
-        escena.agregar_punto(
-            x_next, 0.0, color="#FFFFFF", label=False, id="punto_corte", 
-            tiempo_animacion=T_PROY_PUNTO_ANIM, tiempo_espera=T_PROY_PUNTO_ESPERA
-        )
-        escena.animar_linea_punteada(
-            x1_ini=x_next, x1_fin=x_next, x2_ini=x_next, x2_fin=x_next, y1_ini=0.0, y2_ini=f_objetivo, 
-            color="#FFFFFF", id="proy_c", 
-            tiempo_animacion=T_PROY_LINEA_ANIM, tiempo_espera=T_PROY_LINEA_ESPERA
-        )
-        
-        # 5. MOVIMIENTO EN PARALELO (Antes de que la proyección desaparezca)
-        m_next = f_derivada(x_next)
-        
-        with escena.bloque_paralelo(tiempo_animacion=T_TRANSICION_PARALELO_ANIM, tiempo_espera=T_TRANSICION_PARALELO_ESPERA):
-            # La tangente pivotea y "rueda" sobre la curva hasta la nueva pendiente
-            escena.transformar_objeto(
-                origen="tangente", tipo_destino="funcion", funcion=generar_tangente(x_next, y_next, m_next), 
-                color="#FFFF00", id_destino="tangente"
-            )
-            # El punto viaja físicamente arrastrándose por el contorno de f(x)
-            escena.animar_punto_sobre_curva(
-                x_inicio=x_act, x_fin=x_next, funcion=f_objetivo, 
-                color="#FFFF00", id="punto_n"
-            )
-            
-        # 6. ELIMINACIÓN DE GUÍAS VISUALES
-        escena.eliminar_objeto(
-            id="proy_c", animacion="Uncreate", 
-            tiempo_animacion=T_LIMPIEZA_LINEA_ANIM, tiempo_espera=T_LIMPIEZA_LINEA_ESPERA
-        )
-        escena.eliminar_objeto(
-            id="punto_corte", animacion="FadeOut", 
-            tiempo_animacion=T_LIMPIEZA_PUNTO_ANIM, tiempo_espera=T_LIMPIEZA_PUNTO_ESPERA
-        )
-        
-        # 7. ACTUALIZACIÓN DE VARIABLES Y ERROR
-        error = abs((x_next - x_act) / x_next) * 100 if x_next != 0 else 100
-        x_act = x_next
-        y_act = y_next
-        i += 1
-        
-    escena.desvanecer_todo(tiempo_animacion=T_FINAL_ANIM, tiempo_espera=T_FINAL_ESPERA)
-    escena.render(previsualizar=True)
-`,
-
-  derivada_limite: `import math
-from manim import DOWN
-from Planos.generar_plano import AnimadorGrafico
-
-# 1. Definición Funcional
-def f_objetivo(x: float) -> float:
-    return 0.5 * x**2 + 1
-
-if __name__ == "__main__":
-    escena = AnimadorGrafico(f_objetivo, x_min=-1.0, x_max=4.0)
-    
-    # Nodo ancla P(1, f(1))
-    escena.agregar_punto(
-        x=1.0, y=f_objetivo(1.0), 
-        color="#FF0000", label=True, 
-        tiempo_animacion=1.0, tiempo_espera=0.5
-    )
-    
-    # Punto móvil Q
-    escena.animar_punto_sobre_curva(
-        x_inicio=1.0, x_fin=3.5, 
-        funcion=f_objetivo, 
-        color="#00FF00", 
-        tiempo_animacion=2.0, tiempo_espera=0.5
-    )
-    
-    # Línea de acotación vertical
-    escena.animar_linea_punteada(
-        x1_ini=3.5, x1_fin=3.5,
-        x2_ini=3.5, x2_fin=3.5,
-        y1_ini=f_objetivo, y2_ini=0, 
-        color="#00FFFF", 
-        tiempo_animacion=1.5, tiempo_espera=0.5
-    )
-    
-    # Llave diferencial Delta x
-    escena.animar_llave(
-        x1_ini=1.0, x1_fin=1.0,
-        x2_ini=3.5, x2_fin=3.5,
-        y1_ini=0, y2_ini=0,
-        texto=r"\\Delta x",
-        direccion=DOWN,
-        color="#FF00FF",
-        tiempo_animacion=1.0, tiempo_espera=1.0
-    )
-    
-    # HUD diferencial
-    hud = r"""$$m = \\frac{f(x+\\Delta x) - f(x)}{\\Delta x}$$"""
-    escena.agregar_algebra_flotante(
-        fuente_o_texto=hud, posicion="UL", 
-        id="hud_limite", tiempo_animacion=1.0, tiempo_espera=1.5
-    )
-    
-    # Secante transicionando a tangente
-    escena.animar_secante(
-        x1_ini=1.0, x1_fin=1.0,
-        x2_ini=3.5, x2_fin=1.00001,
-        funcion=f_objetivo, color="#FFFF00",
-        tiempo_animacion=3.5, tiempo_espera=1.0
-    )
-    
-    # Purga y conclusión
-    escena.eliminar_objeto(id="hud_limite", animacion="FadeOut", tiempo_animacion=0.8)
-    conclusion = r"f'(x) = \\lim_{\\Delta x \\to 0} \\frac{f(x+\\Delta x) - f(x)}{\\Delta x}"
-    escena.transformar_a_texto(texto_latex=conclusion, tiempo_animacion=2.0, tiempo_espera=2.5)
-    escena.desvanecer_todo(animacion="FadeOut", tiempo_animacion=1.5)
-    
-    escena.render(previsualizar=True)
-`,
-
-  serie_taylor: `import math
-import sympy as sp
-from Planos.generar_plano import AnimadorGrafico
-
-# ==========================================
-# CONFIGURACIÓN DE LA ANIMACIÓN (TAYLOR)
-# ==========================================
-x_sym = sp.Symbol('x')
-f_expr = sp.sin(x_sym)  # Función objetivo simbólica
-
-A_EXPANSION = 0.0       # Centro de la serie (0.0 = Maclaurin)
-NUM_TERMINOS = 10       # Hasta qué derivada calcular
-# ==========================================
-
-# Puente entre el mundo simbólico y el motor geométrico
-def f_objetivo(x: float) -> float:
-    return float(f_expr.subs(x_sym, x))
-
-if __name__ == "__main__":
-    
-    # La clase AnimadorGrafico dibuja 'f_objetivo' de forma automática
-    escena = AnimadorGrafico(f_objetivo, x_min=-8.0, x_max=8.0)
-    
-    # 1. ETIQUETA FIJA (La función roja ya está en el plano)
-    str_f = sp.latex(f_expr)
-    escena.agregar_algebra_flotante(f"$$f(x) = {str_f}$$", posicion="DR", remover_al_final=False)
-    
-    # 2. PUNTO DE EXPANSIÓN (Anclaje estático Blanco)
-    y_anclaje = f_objetivo(A_EXPANSION)
-    escena.agregar_punto(A_EXPANSION, y_anclaje, color="#FFFFFF", id="punto_ancla", tiempo_animacion=0.5)
-
-    taylor_expr = 0
-    grado_mostrado = 0
-    
-    # 3. BUCLE DE CONSTRUCCIÓN DEL POLINOMIO
-    for i in range(NUM_TERMINOS):
-        # Derivada exacta con SymPy
-        derivada_expr = sp.diff(f_expr, x_sym, i)
-        derivada_eval = derivada_expr.subs(x_sym, A_EXPANSION)
-        
-        # Saltamos términos que valen 0
-        if derivada_eval == 0 and i > 0:
-            continue
-            
-        # Construcción simbólica del nuevo término
-        termino = (derivada_eval / math.factorial(i)) * ((x_sym - A_EXPANSION)**i)
-        taylor_expr += termino
-        
-        f_taylor = sp.lambdify(x_sym, taylor_expr, "math")
-        
-        # HUD Automático
-        str_taylor = sp.latex(taylor_expr)
-        texto_hud = f"""
-        $$\\\\text{{Grado: }} {i}$$
-        $$T_{{{i}}}(x) = {str_taylor}$$
-        """
-        escena.agregar_algebra_flotante(texto_hud, posicion="UL", remover_al_final=True, tiempo_animacion=1.0, tiempo_espera=0.5)
-        
-        # 4. MORPHING ÚNICO DE LA CURVA AMARILLA
-        if grado_mostrado == 0:
-            # En la primera vuelta, la función nace
-            escena.agregar_funcion(f_taylor, color="#FFFF00", id="taylor_act", tiempo_animacion=1.0)
-        else:
-            # En las siguientes, la MISMA función se deforma in-place
-            escena.transformar_objeto(
-                origen="taylor_act", tipo_destino="funcion", funcion=f_taylor, 
-                color="#FFFF00", id_destino="taylor_act", tiempo_animacion=1.5
-            )
-            
-        grado_mostrado += 1
-        
-    escena.desvanecer_todo(tiempo_animacion=2.0)
-    escena.render(previsualizar=True)
-`,
-
-  integral: `import math
-from Planos.generar_plano import AnimadorGrafico
-
-# ==========================================
-# CONFIGURACIÓN DE LA ANIMACIÓN (INTEGRAL)
-# ==========================================
-def f_objetivo(x: float) -> float:
-    return 0.5 * (x**2) + 1.0  
-
-LABEL_FUNCION = r"$$f(x) = \\frac{1}{2}x^2 + 1$$"
-A_LIM = 0.0
-B_LIM = 3.0
-
-PASOS_N = [3, 6, 12, 30] 
-# ==========================================
-
-if __name__ == "__main__":
-    
-    escena = AnimadorGrafico(f_objetivo, x_min=-1.0, x_max=4.0)
-    
-    # 1. ETIQUETA FIJA (Esquina inferior derecha)
-    escena.agregar_algebra_flotante(LABEL_FUNCION, posicion="DR", remover_al_final=False)
-    
-    # 2. DEFINICIÓN DEL INTERVALO (Proyecciones blancas punteadas)
-    escena.animar_linea_punteada(
-        x1_ini=A_LIM, x1_fin=A_LIM, x2_ini=A_LIM, x2_fin=A_LIM, 
-        y1_ini=0.0, y2_ini=f_objetivo, color="#FFFFFF", id="proy_A", tiempo_animacion=0.8
-    )
-    escena.animar_linea_punteada(
-        x1_ini=B_LIM, x1_fin=B_LIM, x2_ini=B_LIM, x2_fin=B_LIM, 
-        y1_ini=0.0, y2_ini=f_objetivo, color="#FFFFFF", id="proy_B", tiempo_animacion=0.8, tiempo_espera=1.0
-    )
-    
-    # 3. BUCLE DE SUMAS DE RIEMANN
-    for i, n in enumerate(PASOS_N):
-        dx = (B_LIM - A_LIM) / n
-        area_aprox = sum(f_objetivo(A_LIM + k * dx) * dx for k in range(n))
-        
-        # HUD: Desglose de dónde sale Delta X
-        texto_hud = f"""
-        $$n = {n}$$
-        $$\\\\Delta x = \\\\frac{{{B_LIM:.1f} - {A_LIM:.1f}}}{{{n}}} = {dx:.4f}$$
-        $$A \\\\approx \\\\sum_{{i=1}}^{{{n}}} f(x_i) \\\\Delta x$$
-        $$A \\\\approx {area_aprox:.4f}$$
-        """
-        escena.agregar_algebra_flotante(texto_hud, posicion="UL", remover_al_final=True, tiempo_animacion=1.0, tiempo_espera=0.5)
-        
-        if i > 0:
-            escena.eliminar_objeto(id="area_riemann", animacion="FadeOut", tiempo_animacion=0.3, tiempo_espera=0.1)
-            
-        escena.animar_integral(
-            funcion=f_objetivo, x_min=A_LIM, x_max=B_LIM, dx=dx,
-            color="#00FFFF", opacidad=0.6, id_area="area_riemann",
-            tiempo_animacion=1.2, tiempo_espera=1.0
-        )
-            
-    # 4. EL CLÍMAX: LA INTEGRAL DEFINIDA
-    area_exacta = 7.5
-    
-    texto_final = f"""
-    $$n \\\\to \\\\infty \\\\quad (\\\\Delta x \\\\to 0)$$
-    $$A = \\\\int_{{{A_LIM:.0f}}}^{{{B_LIM:.0f}}} f(x) dx$$
-    $$A = {area_exacta:.4f}$$
-    """
-    escena.agregar_algebra_flotante(texto_final, posicion="UL", remover_al_final=False, tiempo_animacion=1.0, tiempo_espera=1.0)
-    
-    # === EL CROSSFADE PARALELO ===
-    with escena.bloque_paralelo(tiempo_animacion=2.0, tiempo_espera=2.0):
-        escena.eliminar_objeto(id="area_riemann", animacion="FadeOut", tiempo_animacion=2.0)
-        escena.animar_integral(
-            funcion=f_objetivo, x_min=A_LIM, x_max=B_LIM, dx=None,
-            color="#0066FF", opacidad=0.7, id_area="integral_final",
-            tiempo_animacion=2.0
-        )
-    
-    # Cierre de la escena
-    escena.desvanecer_todo(tiempo_animacion=2.0)
-    escena.render(previsualizar=True)
-`,
-
-  serie_fourier: `import math
-import sympy as sp
-from Planos.generar_plano import AnimadorGrafico
-
-# ==========================================
-# CONFIGURACIÓN DE LA ANIMACIÓN (FOURIER)
-# ==========================================
-x_sym = sp.Symbol('x')
-LABEL_FUNCION = r"$$f(x) = \\\\text{Onda Cuadrada}$$"
-NUM_ARMONICOS = 7  # Número de armónicos impares a sumar
-# ==========================================
-
-# Definimos una onda cuadrada periódica pura (Amplitud de -1 a 1, periodo 2*pi)
-def f_objetivo(x: float) -> float:
-    # Usamos el módulo para hacerla periódica infinita
-    x_mod = x % (2 * math.pi)
-    if x_mod < math.pi:
-        return 1.0
-    elif x_mod > math.pi:
-        return -1.0
-    return 0.0
-
-if __name__ == "__main__":
-    
-    # Plano amplio para ver varios periodos de la señal
-    escena = AnimadorGrafico(f_objetivo, x_min=-7.0, x_max=7.0)
-    
-    # 1. ETIQUETA FIJA (La onda cuadrada roja se dibuja sola)
-    escena.agregar_algebra_flotante(LABEL_FUNCION, posicion="DR", remover_al_final=False)
-    
-    fourier_expr = 0
-    armonico_mostrado = 0
-    
-    # 2. BUCLE DE CONSTRUCCIÓN ARMÓNICA (Solo armónicos impares para la onda cuadrada)
-    for i in range(1, NUM_ARMONICOS + 1):
-        n = 2 * i - 1  # 1, 3, 5, 7...
-        
-        # Construcción simbólica del armónico de Fourier: (4 / (n * pi)) * sin(nx)
-        termino = (4 / (sp.pi * n)) * sp.sin(n * x_sym)
-        fourier_expr += termino
-        
-        # Convertimos la suma armónica a una lambda super rápida para Manim
-        f_fourier = sp.lambdify(x_sym, fourier_expr, "math")
-        
-        # HUD Automático: SymPy formatea la suma de senos a LaTeX
-        str_fourier = sp.latex(fourier_expr)
-        texto_hud = f"""
-        $$\\\\text{{Armónicos: }} {i}$$
-        $$F_{{{n}}}(x) = {str_fourier}$$
-        """
-        escena.agregar_algebra_flotante(texto_hud, posicion="UL", remover_al_final=True, tiempo_animacion=1.0, tiempo_espera=1.0)
-        
-        # 3. MORPHING ÚNICO DE LA ONDA (Amarillo)
-        if armonico_mostrado == 0:
-            # En la primera vuelta, nace la onda senoidal fundamental
-            escena.agregar_funcion(f_fourier, color="#FFFF00", id="fourier_act", tiempo_animacion=1.5)
-        else:
-            # En las siguientes, la onda se deforma para acoplar las frecuencias más altas
-            escena.transformar_objeto(
-                origen="fourier_act", tipo_destino="funcion", funcion=f_fourier, 
-                color="#FFFF00", id_destino="fourier_act", tiempo_animacion=1.5
-            )
-            
-        armonico_mostrado += 1
-        
-    escena.desvanecer_todo(tiempo_animacion=2.0)
-    escena.render(previsualizar=True)
-`,
-
-  curva_polinomica: `import math
-from Planos.generar_plano import AnimadorGrafico
-
-def f_curva(x: float) -> float:
-    return 0.2 * (x - 2) * (x + 2) * x
-
-if __name__ == "__main__":
-    escena = AnimadorGrafico(f_curva, x_min=-3.0, x_max=3.0)
-    
-    escena.agregar_punto(-2.0, f_curva(-2.0), color="#00FFCC", label=True)
-    escena.agregar_punto(0.0, f_curva(0.0), color="#FFCC00", label=True)
-    escena.agregar_punto(2.0, f_curva(2.0), color="#FF007F", label=True)
-    
-    escena.animar_punto_sobre_curva(
-        x_inicio=-2.5, x_fin=2.5, funcion=f_curva, 
-        color="#FFFFFF", tiempo_animacion=3.0, tiempo_espera=1.0
-    )
-    
-    escena.desvanecer_todo(animacion="FadeOut", tiempo_animacion=1.5)
-    escena.render(previsualizar=True)
-`,
-
-  hud_algebra: `import math
-from manim import DOWN
-from Planos.generar_plano import AnimadorGrafico
-
-def f_parabola(x: float) -> float:
-    return x**2 - 2
-
-if __name__ == "__main__":
-    escena = AnimadorGrafico(f_parabola, x_min=-2.5, x_max=2.5)
-    
-    hud_formula = r"""$$f(x) = x^2 - 2$$"""
-    escena.agregar_algebra_flotante(hud_formula, posicion="UL", id="hud_fn", tiempo_animacion=1.0)
-    
-    escena.agregar_punto(1.414, 0.0, color="#00FF00", label=True)
-    escena.agregar_punto(-1.414, 0.0, color="#00FF00", label=True)
-    
-    escena.animar_llave(
-        x1_ini=-1.414, x1_fin=-1.414, x2_ini=1.414, x2_fin=1.414,
-        y1_ini=0, y2_ini=0, texto=r"2\\sqrt{2}", direccion=DOWN, color="#58C4DD"
-    )
-    
-    escena.desvanecer_todo(animacion="FadeOut", tiempo_animacion=1.5)
-    escena.render(previsualizar=True)
-`,
-
-  pasos_algebraicos: `$$\\textcolor{yellow}{y} = \\frac{f(b) - f(a)}{b - a} \\textcolor{yellow}{x} + \\textcolor{yellow}{b}$$
-$$y = \\frac{f(b) - f(a)}{b - a} x + \\textcolor{yellow}{b}$$
-$$f(c) = \\frac{f(b) - f(a)}{b - a} c + \\textcolor{yellow}{b}$$
-$$\\textcolor{yellow}{b} = f(c) - \\frac{f(b) - f(a)}{b - a} c$$
-$$y = \\frac{f(b) - f(a)}{b - a} x + \\left( f(c) - \\frac{f(b) - f(a)}{b - a} c \\right)$$
-$$y - f(c) = \\textcolor{yellow}{\\frac{f(b) - f(a)}{b - a}} (x - c)$$`,
-
-  purga_ciclo_vida: `import math
-from Planos.generar_plano import AnimadorGrafico
-
-def f_onda(x: float) -> float:
-    return math.sin(x)
-
-if __name__ == "__main__":
-    escena = AnimadorGrafico(f_onda, x_min=-4.0, x_max=4.0)
-    
-    escena.agregar_punto(0.0, 0.0, color="#FF0000", id="punto_origen")
-    escena.agregar_punto(1.57, 1.0, color="#00FF00", id="punto_maximo")
-    escena.agregar_punto(3.14, 0.0, color="#0000FF", id="punto_nodo")
-    
-    # Purga progresiva por ID
-    escena.eliminar_objeto(id="punto_origen", animacion="Uncreate", tiempo_animacion=1.0)
-    escena.eliminar_objeto(id="punto_maximo", animacion="ShrinkToCenter", tiempo_animacion=1.0)
-    escena.eliminar_objeto(id="punto_nodo", animacion="FadeOut", tiempo_animacion=1.0)
-    
-    escena.desvanecer_todo(animacion="FadeOut", tiempo_animacion=1.5)
-    escena.render(previsualizar=True)
-`
-};
+const TEMPLATES = {};
 
 // ==========================================================================
 // 2. INICIALIZACIÓN
@@ -860,6 +49,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initScratchSystem();
   initTemplatesModal();
   initAudioModule();
+  initShortCreator();
   initEventListeners();
   initSSE();
   fetchLatestVideo();
@@ -983,11 +173,17 @@ function switchView(viewId) {
   const titles = {
     'view-manual': 'Animación manual',
     'view-scratch': 'Insertar funciones',
+    'view-short': 'Creador de Shorts',
     'view-settings': 'Ajustes',
     'view-docs': 'Documentación'
   };
   if (tabLabel && titles[viewId]) {
     tabLabel.textContent = titles[viewId];
+  }
+
+  // Activar inicializador o refresco al entrar a view-short
+  if (viewId === 'view-short') {
+    onEnterShortView();
   }
 
   // Cargar documentación si se entra en view-docs
@@ -1220,17 +416,26 @@ function initSSE() {
   eventSource.addEventListener('log', (e) => {
     const data = JSON.parse(e.data);
     appendTerminalLine(data.level || 'info', data.text);
+    if (typeof appendShortTerminalLine === 'function') {
+      appendShortTerminalLine(data.level || 'info', data.text);
+    }
   });
 
   eventSource.addEventListener('status', (e) => {
     const data = JSON.parse(e.data);
     handleServerStatusUpdate(data);
+    if (typeof handleShortStatusUpdate === 'function') {
+      handleShortStatusUpdate(data);
+    }
   });
 
   eventSource.addEventListener('video', (e) => {
     const data = JSON.parse(e.data);
     if (data.video_url) {
       loadVideoPlayer(data.video_url);
+      if (typeof loadShortVideoPlayer === 'function') {
+        loadShortVideoPlayer(data.video_url);
+      }
     }
   });
 }
@@ -1905,26 +1110,45 @@ function initTemplatesModal() {
   document.querySelectorAll('.template-item').forEach(item => {
     item.addEventListener('click', async () => {
       const templateId = item.getAttribute('data-template-id');
-      if (templateId === 'pasos_algebraicos') {
-        state.activeFile = 'pasos_algebraicos.txt';
-        await loadMainPy('pasos_algebraicos.txt');
-        closeModal();
-        switchView('view-manual');
-        appendTerminalLine('system', 'Plantilla especial "Pasos algebráicos" activada. Editando pasos_algebraicos.txt.');
-        return;
-      }
+      if (!templateId) return;
 
-      state.activeFile = 'main.py';
-      updateActiveFileUI('main.py');
-      const templateCode = TEMPLATES[templateId];
-      if (templateCode) {
+      try {
+        appendTerminalLine('info', `Cargando plantilla "${templateId}" desde la carpeta de Plantillas...`);
+        const res = await fetch(`/api/get_template?id=${encodeURIComponent(templateId)}`);
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.error || `HTTP error ${res.status}`);
+        }
+        const data = await res.json();
+        if (data.status !== 'success' || !data.code) {
+          throw new Error(data.error || 'No se recibió código de la plantilla');
+        }
+
+        if (templateId === 'pasos_algebraicos') {
+          state.activeFile = 'pasos_algebraicos.txt';
+          updateActiveFileUI('pasos_algebraicos.txt');
+          const editor = document.getElementById('code-editor');
+          if (editor) editor.value = data.code;
+          updateLineNumbers();
+          await saveMainPy();
+          closeModal();
+          switchView('view-manual');
+          appendTerminalLine('system', `Plantilla especial "Pasos algebráicos" cargada desde ${data.path}. Editando pasos_algebraicos.txt.`);
+          return;
+        }
+
+        state.activeFile = 'main.py';
+        updateActiveFileUI('main.py');
         const editor = document.getElementById('code-editor');
-        editor.value = templateCode;
+        if (editor) editor.value = data.code;
         updateLineNumbers();
         await saveMainPy();
         closeModal();
         switchView('view-manual');
-        appendTerminalLine('system', `Plantilla "${templateId}" cargada en main.py.`);
+        appendTerminalLine('system', `Plantilla "${templateId}" cargada con éxito desde ${data.path} en main.py.`);
+      } catch (err) {
+        appendTerminalLine('error', `Error al cargar plantilla "${templateId}": ${err.message}`);
+        alert(`Error al cargar plantilla: ${err.message}`);
       }
     });
   });
@@ -2475,3 +1699,725 @@ function initEventListeners() {
     }
   });
 }
+
+// ==========================================================================
+// 17. MÓDULO: CREADOR DE SHORTS (SISTEMA DE CADENCIA MATEMÁTICA Y EJECUCIÓN)
+// ==========================================================================
+
+const shortState = {
+  metodo: 'biseccion',
+  tiempo_deseado: 60.0,
+  max_iteraciones: 4,
+  funcion: 'exp(x) - 3*(x**2)',
+  a: 0.0,
+  b: 1.5,
+  x0: 1.5,
+  x_min: -0.5,
+  x_max: 2.0,
+  tolerancia: 0.0001,
+  codigo_generado: '',
+  timerDebounce: null,
+  inicializado: false
+};
+
+function onEnterShortView() {
+  if (!shortState.inicializado) {
+    initShortCreator();
+  } else {
+    recalcularShort();
+  }
+  renderMethodCardFormulas();
+}
+
+function renderMethodCardFormulas() {
+  if (window.katex) {
+    const formulas = {
+      'method-card-biseccion': 'c = \\frac{a+b}{2}',
+      'method-card-regla-falsa': 'c = b - f(b)\\frac{b-a}{f(b)-f(a)}',
+      'method-card-newton-raphson': 'x_{n+1} = x_n - \\frac{f(x_n)}{f\'(x_n)}',
+      'method-card-taylor': 'T_n(x) = \\sum_{k=0}^n \\frac{f^{(k)}(x_0)}{k!}(x-x_0)^k'
+    };
+    for (const [cardId, tex] of Object.entries(formulas)) {
+      const card = document.getElementById(cardId);
+      if (card) {
+        const formulaEl = card.querySelector('.method-formula');
+        if (formulaEl) {
+          try {
+            katex.render(tex, formulaEl, { displayMode: true, throwOnError: false });
+          } catch (e) {
+            formulaEl.textContent = tex;
+          }
+        }
+      }
+    }
+  }
+}
+
+function selectShortMethod(selected, triggerRecalc = true) {
+  if (!selected) return;
+
+  shortState.metodo = selected;
+  const methodCards = document.querySelectorAll('.short-method-card');
+  methodCards.forEach(c => {
+    if (c.getAttribute('data-method') === selected) {
+      c.classList.add('active');
+    } else {
+      c.classList.remove('active');
+    }
+  });
+
+  const nombres = {
+    biseccion: 'Bisección',
+    regla_falsa: 'Regla Falsa',
+    newton_raphson: 'Newton-Raphson',
+    serie_taylor: 'Serie de Taylor'
+  };
+
+  const nombreMetodo = nombres[selected] || selected;
+
+  // Actualizar resumen en panel de estado
+  const summaryMetodo = document.getElementById('short-summary-metodo');
+  if (summaryMetodo) {
+    summaryMetodo.textContent = nombreMetodo;
+  }
+
+  // Actualizar texto dinámico en el botón de función aleatoria para este método
+  const btnCurText = document.getElementById('btn-short-random-current-text');
+  if (btnCurText) {
+    btnCurText.textContent = `Función Aleatoria (${nombreMetodo})`;
+  }
+
+  // Alternar visibilidad de parámetros: intervalo [a, b] vs punto inicial/centro x0
+  const grpIntervalo = document.getElementById('param-group-intervalo');
+  const grpPunto = document.getElementById('param-group-punto');
+  const lblPunto = document.getElementById('short-label-x0');
+  const iterHeading = document.getElementById('short-iter-heading');
+  const iterDesc = document.getElementById('short-iter-desc');
+  const iterUnit = document.getElementById('short-iter-unit');
+  const iterSummaryLbl = document.getElementById('short-summary-iter-label');
+
+  if (selected === 'serie_taylor') {
+    if (grpIntervalo) grpIntervalo.classList.add('hidden');
+    if (grpPunto) grpPunto.classList.remove('hidden');
+    if (lblPunto) lblPunto.textContent = 'Centro de Expansión (x₀):';
+    if (iterHeading) iterHeading.textContent = 'Grado del Polinomio (n)';
+    if (iterDesc) iterDesc.textContent = 'Grado máximo de la aproximación polinómica';
+    if (iterUnit) iterUnit.textContent = 'grados';
+    if (iterSummaryLbl) iterSummaryLbl.textContent = 'Grado:';
+  } else if (selected === 'newton_raphson') {
+    if (grpIntervalo) grpIntervalo.classList.add('hidden');
+    if (grpPunto) grpPunto.classList.remove('hidden');
+    if (lblPunto) lblPunto.textContent = 'Punto Inicial (x₀):';
+    if (iterHeading) iterHeading.textContent = 'Número de Iteraciones';
+    if (iterDesc) iterDesc.textContent = 'Pasos sucesivos del algoritmo a animar';
+    if (iterUnit) iterUnit.textContent = 'iteraciones';
+    if (iterSummaryLbl) iterSummaryLbl.textContent = 'Iteraciones:';
+  } else {
+    if (grpIntervalo) grpIntervalo.classList.remove('hidden');
+    if (grpPunto) grpPunto.classList.add('hidden');
+    if (iterHeading) iterHeading.textContent = 'Número de Iteraciones';
+    if (iterDesc) iterDesc.textContent = 'Pasos sucesivos del algoritmo a animar';
+    if (iterUnit) iterUnit.textContent = 'iteraciones';
+    if (iterSummaryLbl) iterSummaryLbl.textContent = 'Iteraciones:';
+  }
+
+  if (triggerRecalc) {
+    scheduleShortRecalc();
+  }
+}
+
+async function generarEjercicioAleatorio(soloMetodoActual = false) {
+  const btnAll = document.getElementById('btn-short-random-all');
+  const btnCur = document.getElementById('btn-short-random-current');
+  const statusBadge = document.getElementById('auto-gen-status-badge');
+  const statusText = document.getElementById('auto-gen-status-text');
+  const summaryRow = document.getElementById('auto-gen-summary-row');
+  const chipMethod = document.getElementById('auto-chip-method');
+  const chipRoot = document.getElementById('auto-chip-root');
+  const chipParam = document.getElementById('auto-chip-param');
+
+  if (btnAll) btnAll.disabled = true;
+  if (btnCur) btnCur.disabled = true;
+  if (statusBadge) {
+    statusBadge.classList.remove('hidden');
+    if (statusText) statusText.textContent = 'Generando...';
+  }
+
+  try {
+    let url = '/api/short/random_exercise';
+    if (soloMetodoActual && shortState.metodo) {
+      url += `?metodo=${encodeURIComponent(shortState.metodo)}`;
+    }
+
+    const res = await fetch(url);
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      throw new Error(errData.error || 'Error al conectar con el generador de ejercicios');
+    }
+
+    const data = await res.json();
+    if (data.status !== 'success') {
+      throw new Error(data.error || 'Respuesta no exitosa del generador');
+    }
+
+    // 1. Activar el método si se ejecutó la ruleta completa
+    if (!soloMetodoActual && data.metodo_id) {
+      selectShortMethod(data.metodo_id, false);
+    }
+
+    // 2. Asignar los valores matemáticos generados
+    shortState.funcion = data.funcion;
+    shortState.a = data.a;
+    shortState.b = data.b;
+    shortState.x0 = data.x0;
+    shortState.x_min = data.x_min;
+    shortState.x_max = data.x_max;
+
+    // 3. Reflejar en los campos del DOM
+    const inputFunc = document.getElementById('short-input-func');
+    if (inputFunc) inputFunc.value = data.funcion;
+
+    const inpA = document.getElementById('short-param-a');
+    if (inpA) inpA.value = data.a;
+
+    const inpB = document.getElementById('short-param-b');
+    if (inpB) inpB.value = data.b;
+
+    const inpX0 = document.getElementById('short-param-x0');
+    if (inpX0) inpX0.value = data.x0;
+
+    const inpXmin = document.getElementById('short-param-xmin');
+    if (inpXmin) inpXmin.value = data.x_min;
+
+    const inpXmax = document.getElementById('short-param-xmax');
+    if (inpXmax) inpXmax.value = data.x_max;
+
+    // 4. Previsualización KaTeX inmediata
+    if (data.latex && window.katex) {
+      const target = document.getElementById('short-katex-target');
+      if (target) {
+        try {
+          katex.render(`f(x) = ${data.latex}`, target, { displayMode: true, throwOnError: false });
+        } catch {
+          renderMathPreviewQuick(data.funcion);
+        }
+      }
+    } else {
+      renderMathPreviewQuick(data.funcion);
+    }
+
+    // 5. Actualizar barra de estado y resumen
+    if (statusText) statusText.textContent = '¡Ejercicio generado!';
+    if (summaryRow) summaryRow.classList.remove('hidden');
+    if (chipMethod) chipMethod.textContent = data.metodo_nombre || data.metodo_id;
+    if (chipRoot) chipRoot.innerHTML = `Raíz objetivo: <strong>${data.raiz_objetiva}</strong>`;
+    if (chipParam) {
+      if (data.metodo_id === 'newton_raphson') {
+        chipParam.innerHTML = `Semilla x₀: <strong>${data.x0}</strong>`;
+      } else if (data.metodo_id === 'serie_taylor') {
+        chipParam.innerHTML = `Centro x₀: <strong>${data.x0}</strong>`;
+      } else {
+        chipParam.innerHTML = `Intervalo: <strong>[${data.a}, ${data.b}]</strong>`;
+      }
+    }
+
+    appendTerminalLine('info', `[Modo Automático] Generado para ${data.metodo_nombre}: ${data.funcion}`);
+
+    // 6. Recalcular parámetros de cadencia
+    scheduleShortRecalc(80);
+
+  } catch (err) {
+    appendTerminalLine('error', `Error al generar ejercicio aleatorio: ${err.message}`);
+    if (statusText) statusText.textContent = 'Error';
+    alert('Error al generar ejercicio aleatorio: ' + err.message);
+  } finally {
+    if (btnAll) btnAll.disabled = false;
+    if (btnCur) btnCur.disabled = false;
+    setTimeout(() => {
+      if (statusText && statusText.textContent === '¡Ejercicio generado!') {
+        statusText.textContent = 'Listo';
+      }
+    }, 3000);
+  }
+}
+
+function initShortCreator() {
+  if (shortState.inicializado) return;
+
+  // Renderizar KaTeX de las tarjetas de métodos
+  renderMethodCardFormulas();
+
+  // 1. Selector de Método Numérico (Cards)
+  const methodCards = document.querySelectorAll('.short-method-card');
+  methodCards.forEach(card => {
+    card.addEventListener('click', () => {
+      const selected = card.getAttribute('data-method');
+      selectShortMethod(selected);
+    });
+  });
+
+  // Inicializar texto del botón de método actual
+  selectShortMethod(shortState.metodo, false);
+
+  // Botones de Modo Automático / Generador de Ejercicios
+  const btnRandomAll = document.getElementById('btn-short-random-all');
+  if (btnRandomAll) {
+    btnRandomAll.addEventListener('click', () => {
+      generarEjercicioAleatorio(false);
+    });
+  }
+
+  const btnRandomCurrent = document.getElementById('btn-short-random-current');
+  if (btnRandomCurrent) {
+    btnRandomCurrent.addEventListener('click', () => {
+      generarEjercicioAleatorio(true);
+    });
+  }
+
+  // 2. Chips de Presets de Tiempo (15s, 30s, 45s, 60s)
+  const presetChips = document.querySelectorAll('.preset-chip');
+  const sliderTiempo = document.getElementById('short-time-slider');
+  const dispTiempo = document.getElementById('short-time-display-val');
+
+  presetChips.forEach(chip => {
+    chip.addEventListener('click', () => {
+      presetChips.forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+
+      const val = parseFloat(chip.getAttribute('data-time'));
+      shortState.tiempo_deseado = val;
+
+      if (sliderTiempo) sliderTiempo.value = val;
+      if (dispTiempo) dispTiempo.textContent = val;
+
+      const summaryTiempo = document.getElementById('short-summary-tiempo');
+      if (summaryTiempo) summaryTiempo.textContent = `${val} s`;
+
+      scheduleShortRecalc();
+    });
+  });
+
+  // 3. Slider de Tiempo Objetivo
+  if (sliderTiempo) {
+    sliderTiempo.addEventListener('input', () => {
+      const val = parseFloat(sliderTiempo.value);
+      shortState.tiempo_deseado = val;
+      if (dispTiempo) dispTiempo.textContent = val;
+
+      const summaryTiempo = document.getElementById('short-summary-tiempo');
+      if (summaryTiempo) summaryTiempo.textContent = `${val} s`;
+
+      // Actualizar chips activos
+      presetChips.forEach(chip => {
+        if (parseFloat(chip.getAttribute('data-time')) === val) {
+          chip.classList.add('active');
+        } else {
+          chip.classList.remove('active');
+        }
+      });
+
+      scheduleShortRecalc(150);
+    });
+  }
+
+  // 4. Input de Expresión Matemática y Ejemplos Rápidos
+  const inputFunc = document.getElementById('short-input-func');
+  if (inputFunc) {
+    inputFunc.addEventListener('input', () => {
+      shortState.funcion = inputFunc.value.trim() || 'exp(x) - 3*(x**2)';
+      renderMathPreviewQuick(shortState.funcion);
+      scheduleShortRecalc(350);
+    });
+  }
+
+  // Chips de Ejemplos de Funciones (1-click)
+  document.querySelectorAll('.func-chip').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const fn = btn.getAttribute('data-fn');
+      const a = btn.getAttribute('data-a');
+      const b = btn.getAttribute('data-b');
+      const x0 = btn.getAttribute('data-x0');
+      const xmin = btn.getAttribute('data-xmin');
+      const xmax = btn.getAttribute('data-xmax');
+
+      if (fn && inputFunc) {
+        inputFunc.value = fn;
+        shortState.funcion = fn;
+      }
+      if (a) {
+        const inpA = document.getElementById('short-param-a');
+        if (inpA) inpA.value = a;
+        shortState.a = parseFloat(a);
+      }
+      if (b) {
+        const inpB = document.getElementById('short-param-b');
+        if (inpB) inpB.value = b;
+        shortState.b = parseFloat(b);
+      }
+      if (x0) {
+        const inpX0 = document.getElementById('short-param-x0');
+        if (inpX0) inpX0.value = x0;
+        shortState.x0 = parseFloat(x0);
+      }
+      if (xmin) {
+        const inpXmin = document.getElementById('short-param-xmin');
+        if (inpXmin) inpXmin.value = xmin;
+        shortState.x_min = parseFloat(xmin);
+      }
+      if (xmax) {
+        const inpXmax = document.getElementById('short-param-xmax');
+        if (inpXmax) inpXmax.value = xmax;
+        shortState.x_max = parseFloat(xmax);
+      }
+
+      renderMathPreviewQuick(shortState.funcion);
+      scheduleShortRecalc(50);
+    });
+  });
+
+  // 5. Parámetros Numéricos Contextuales
+  const inpA = document.getElementById('short-param-a');
+  const inpB = document.getElementById('short-param-b');
+  const inpX0 = document.getElementById('short-param-x0');
+  const inpXmin = document.getElementById('short-param-xmin');
+  const inpXmax = document.getElementById('short-param-xmax');
+
+  [inpA, inpB, inpX0, inpXmin, inpXmax].forEach(inp => {
+    if (inp) {
+      inp.addEventListener('input', () => {
+        if (inpA) shortState.a = parseFloat(inpA.value) || 0.0;
+        if (inpB) shortState.b = parseFloat(inpB.value) || 1.5;
+        if (inpX0) shortState.x0 = parseFloat(inpX0.value) || 1.5;
+        if (inpXmin) shortState.x_min = parseFloat(inpXmin.value) || -0.5;
+        if (inpXmax) shortState.x_max = parseFloat(inpXmax.value) || 2.0;
+        scheduleShortRecalc(250);
+      });
+    }
+  });
+
+  // 6. Slider de Número de Iteraciones
+  const sliderIter = document.getElementById('short-iter-slider');
+  const dispIter = document.getElementById('short-iter-display-val');
+  if (sliderIter) {
+    sliderIter.addEventListener('input', () => {
+      const val = parseInt(sliderIter.value, 10);
+      shortState.max_iteraciones = val;
+      if (dispIter) dispIter.textContent = val;
+
+      const summaryIter = document.getElementById('short-summary-iter');
+      if (summaryIter) summaryIter.textContent = val;
+
+      scheduleShortRecalc(150);
+    });
+  }
+
+  // 7. Botón: Generar Video (Ejecución en segundo plano con Consola y Spinner)
+  const btnGenerateVideo = document.getElementById('btn-short-generate-video');
+  if (btnGenerateVideo) {
+    btnGenerateVideo.addEventListener('click', async () => {
+      if (state.isRendering) return;
+
+      handleShortStatusUpdate({ state: 'rendering' });
+
+      appendShortTerminalLine('info', '==========================================================');
+      appendShortTerminalLine('progress', `Compilando animación Manim para el método ${shortState.metodo.toUpperCase()} (${shortState.tiempo_deseado}s)...`);
+
+      try {
+        // 1. Generar código y guardarlo en main.py
+        const genRes = await fetch('/api/short/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...shortState, save_to_main: true })
+        });
+        const genData = await genRes.json();
+        if (genData.status !== 'success') {
+          throw new Error(genData.error || 'Fallo al generar código');
+        }
+
+        shortState.codigo_generado = genData.codigo;
+        appendShortTerminalLine('success', `Código generado con cadencia temporal calibrada (${genData.tiempo_estimado}s).`);
+        appendShortTerminalLine('info', `Iniciando proceso Manim (Calidad: ${state.quality})...`);
+
+        // 2. Ejecutar main.py en backend
+        const runRes = await fetch('/api/run_main', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ code: genData.codigo, file: 'main.py', quality: state.quality })
+        });
+        if (!runRes.ok) {
+          const runErr = await runRes.json();
+          throw new Error(runErr.error || 'Fallo al iniciar el motor Manim');
+        }
+
+      } catch (err) {
+        appendShortTerminalLine('error', `Error en la generación: ${err.message}`);
+        handleShortStatusUpdate({ state: 'error' });
+      }
+    });
+  }
+
+  // 8. Botón: Cargar en Editor (main.py)
+  const btnToEditor = document.getElementById('btn-short-to-editor');
+  if (btnToEditor) {
+    btnToEditor.addEventListener('click', async () => {
+      btnToEditor.disabled = true;
+      const originalText = btnToEditor.innerHTML;
+      btnToEditor.innerHTML = '<span>Guardando...</span>';
+
+      try {
+        const res = await fetch('/api/short/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...shortState, save_to_main: true })
+        });
+        const data = await res.json();
+        if (data.status === 'success') {
+          appendTerminalLine('success', `Código de Short (${data.metodo.toUpperCase()}) guardado en main.py.`);
+          await loadMainPy();
+          switchView('view-manual');
+        } else {
+          alert('Error al generar código: ' + (data.error || 'Desconocido'));
+        }
+      } catch (err) {
+        alert('Error de conexión: ' + err.message);
+      } finally {
+        btnToEditor.disabled = false;
+        btnToEditor.innerHTML = originalText;
+      }
+    });
+  }
+
+  // 9. Controles de la Consola de la Vista Short
+  const btnClearConsole = document.getElementById('btn-short-clear-console');
+  if (btnClearConsole) {
+    btnClearConsole.addEventListener('click', () => {
+      const term = document.getElementById('short-terminal-screen');
+      if (term) {
+        term.innerHTML = '<div class="term-line term-system"><span class="term-timestamp">[00:00:00]</span> Consola limpiada por el usuario.</div>';
+      }
+    });
+  }
+
+  const btnCopyConsole = document.getElementById('btn-short-copy-console');
+  if (btnCopyConsole) {
+    btnCopyConsole.addEventListener('click', () => {
+      const term = document.getElementById('short-terminal-screen');
+      if (term) {
+        navigator.clipboard.writeText(term.innerText).then(() => {
+          const orig = btnCopyConsole.textContent;
+          btnCopyConsole.textContent = 'Copiado';
+          setTimeout(() => { btnCopyConsole.textContent = orig; }, 1500);
+        });
+      }
+    });
+  }
+
+  // 10. Botón Reiniciar Reproducción de Video Short
+  const btnRestartShort = document.getElementById('short-btn-restart-video');
+  if (btnRestartShort) {
+    btnRestartShort.addEventListener('click', () => {
+      const player = document.getElementById('short-video-player');
+      if (player) {
+        player.currentTime = 0;
+        player.play().catch(() => {});
+      }
+    });
+  }
+
+  shortState.inicializado = true;
+  recalcularShort();
+}
+
+function scheduleShortRecalc(delayMs = 250) {
+  if (shortState.timerDebounce) {
+    clearTimeout(shortState.timerDebounce);
+  }
+  shortState.timerDebounce = setTimeout(() => {
+    recalcularShort();
+  }, delayMs);
+}
+
+function renderMathPreviewQuick(formulaStr) {
+  const target = document.getElementById('short-katex-target');
+  if (!target) return;
+
+  if (window.katex) {
+    try {
+      let clean = formulaStr.trim()
+        .replace(/\*\*/g, '^')
+        .replace(/\*/g, ' \\cdot ')
+        .replace(/exp\(([^)]+)\)/g, 'e^{$1}')
+        .replace(/math\./g, '')
+        .replace(/sin\(/g, '\\sin(')
+        .replace(/cos\(/g, '\\cos(')
+        .replace(/tan\(/g, '\\tan(')
+        .replace(/sqrt\(([^)]+)\)/g, '\\sqrt{$1}');
+      katex.render(`f(x) = ${clean}`, target, { displayMode: true, throwOnError: false });
+    } catch {
+      target.textContent = `f(x) = ${formulaStr}`;
+    }
+  } else {
+    target.textContent = `f(x) = ${formulaStr}`;
+  }
+}
+
+async function recalcularShort() {
+  try {
+    const res = await fetch('/api/short/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...shortState, save_to_main: false })
+    });
+
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data.status !== 'success') return;
+
+    shortState.codigo_generado = data.codigo;
+
+    // Actualizar encabezados y métricas clave
+    const quickCompat = document.getElementById('short-quick-compat-pill');
+    if (quickCompat) quickCompat.textContent = `${Number(data.tiempo_objetivo).toFixed(0)} s`;
+
+    const quickFactor = document.getElementById('short-quick-factor-val');
+    if (quickFactor) {
+      const escala = data.escala_tiempo !== undefined ? data.escala_tiempo : data.factor_escalado;
+      quickFactor.textContent = `${Number(escala).toFixed(2)}x`;
+    }
+
+    // Actualizar resumen en panel de estado
+    const summaryMetodo = document.getElementById('short-summary-metodo');
+    if (summaryMetodo) {
+      const nombres = {
+        biseccion: 'Bisección',
+        regla_falsa: 'Regla Falsa',
+        newton_raphson: 'Newton-Raphson',
+        serie_taylor: 'Serie de Taylor'
+      };
+      summaryMetodo.textContent = nombres[shortState.metodo] || shortState.metodo;
+    }
+
+    const summaryTiempo = document.getElementById('short-summary-tiempo');
+    if (summaryTiempo) summaryTiempo.textContent = `${Number(shortState.tiempo_deseado).toFixed(0)} s`;
+
+    const summaryIter = document.getElementById('short-summary-iter');
+    if (summaryIter) summaryIter.textContent = shortState.max_iteraciones;
+
+    // Renderizado KaTeX de la Función y su Derivada
+    if (window.katex && data.info_funcion) {
+      const targetMain = document.getElementById('short-katex-target');
+      if (targetMain && data.info_funcion.latex_func) {
+        try {
+          katex.render(data.info_funcion.latex_func, targetMain, { displayMode: true, throwOnError: false });
+        } catch {
+          targetMain.textContent = data.info_funcion.latex_func;
+        }
+      }
+
+      const targetDeriv = document.getElementById('short-katex-deriv-target');
+      if (targetDeriv) {
+        if (shortState.metodo === 'newton_raphson' && data.info_funcion.latex_deriv) {
+          targetDeriv.classList.remove('hidden');
+          try {
+            katex.render(data.info_funcion.latex_deriv, targetDeriv, { displayMode: true, throwOnError: false });
+          } catch {
+            targetDeriv.textContent = data.info_funcion.latex_deriv;
+          }
+        } else {
+          targetDeriv.classList.add('hidden');
+          targetDeriv.innerHTML = '';
+        }
+      }
+    }
+
+  } catch (err) {
+    console.error('Error al recalcular Short:', err);
+  }
+}
+
+function appendShortTerminalLine(level, text) {
+  const terminal = document.getElementById('short-terminal-screen');
+  if (!terminal) return;
+  const line = document.createElement('div');
+  line.className = `term-line term-${level}`;
+
+  const now = new Date();
+  const timeStr = now.toTimeString().split(' ')[0];
+  line.innerHTML = `<span class="term-timestamp">[${timeStr}]</span> ${escapeHtml(text)}`;
+
+  terminal.appendChild(line);
+  terminal.scrollTop = terminal.scrollHeight;
+}
+
+function handleShortStatusUpdate(data) {
+  const heading = document.getElementById('short-status-heading');
+  const dot = document.getElementById('short-status-indicator-dot');
+  const stateIdle = document.getElementById('short-state-idle');
+  const stateLoading = document.getElementById('short-state-loading');
+  const statePlayer = document.getElementById('short-state-player');
+  const btnGen = document.getElementById('btn-short-generate-video');
+  const btnGenText = document.getElementById('btn-short-generate-text');
+
+  if (data.state === 'rendering') {
+    if (heading) heading.textContent = 'Generando Video...';
+    if (dot) dot.className = 'short-status-indicator-dot pulsating';
+    if (stateIdle) stateIdle.classList.add('hidden');
+    if (statePlayer) statePlayer.classList.add('hidden');
+    if (stateLoading) stateLoading.classList.remove('hidden');
+    if (btnGen) btnGen.disabled = true;
+    if (btnGenText) btnGenText.textContent = 'Compilando...';
+  } else if (data.state === 'success') {
+    if (heading) heading.textContent = 'Video Generado con Éxito';
+    if (dot) dot.className = 'short-status-indicator-dot ready';
+    if (stateLoading) stateLoading.classList.add('hidden');
+    if (stateIdle) stateIdle.classList.add('hidden');
+    if (statePlayer) statePlayer.classList.remove('hidden');
+    if (btnGen) btnGen.disabled = false;
+    if (btnGenText) btnGenText.textContent = 'Generar Video';
+    if (data.video_url) {
+      loadShortVideoPlayer(data.video_url);
+    }
+  } else if (data.state === 'error') {
+    if (heading) heading.textContent = 'Error en la Generación';
+    if (dot) dot.className = 'short-status-indicator-dot error';
+    if (stateLoading) stateLoading.classList.add('hidden');
+    if (stateIdle) stateIdle.classList.remove('hidden');
+    if (statePlayer) statePlayer.classList.add('hidden');
+    if (btnGen) btnGen.disabled = false;
+    if (btnGenText) btnGenText.textContent = 'Reintentar Generación';
+  }
+}
+
+function loadShortVideoPlayer(videoUrl) {
+  const player = document.getElementById('short-video-player');
+  const source = document.getElementById('short-video-source');
+  const dlBtn = document.getElementById('short-btn-download-video');
+  const btnRestart = document.getElementById('short-btn-restart-video');
+  const metaBadge = document.getElementById('short-video-meta');
+  const statePlayer = document.getElementById('short-state-player');
+  const stateIdle = document.getElementById('short-state-idle');
+  const stateLoading = document.getElementById('short-state-loading');
+
+  if (stateIdle) stateIdle.classList.add('hidden');
+  if (stateLoading) stateLoading.classList.add('hidden');
+  if (statePlayer) statePlayer.classList.remove('hidden');
+
+  if (source && player) {
+    source.src = videoUrl;
+    player.load();
+    player.onloadeddata = () => {
+      if (metaBadge) {
+        metaBadge.textContent = `${player.videoWidth}x${player.videoHeight} • ${player.duration.toFixed(1)}s`;
+      }
+      if (dlBtn) {
+        dlBtn.href = videoUrl;
+        dlBtn.classList.remove('disabled');
+      }
+      if (btnRestart) {
+        btnRestart.disabled = false;
+      }
+      player.play().catch(() => {});
+    };
+  }
+}
+
