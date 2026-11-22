@@ -277,6 +277,10 @@ class EditorAPI:
         if format_id != scene["ir"].get("format"):
             scene = self._save_ir(scene, {**scene["ir"], "format": format_id})
 
+        # Un nuevo render de la misma escena reemplaza al anterior: evita
+        # subprocesos Manim concurrentes escribiendo código/estado a la vez.
+        self.jobs.cancel_scene(scene["id"], reason="reemplazado por un render más reciente")
+
         return self.jobs.submit(
             scene["id"],
             scene["code"],

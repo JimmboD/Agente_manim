@@ -697,6 +697,10 @@ class AnimadorGrafico:
                     anims_paralelas = []
                     callbacks_paralelos = []
 
+                    # Algunas acciones (creación de updaters, fundidos de
+                    # contexto, flush del bloque paralelo) llaman a self.play
+                    # directamente a propósito: necesitan un orden estricto o
+                    # actúan antes de que exista el dispatcher.
                     def despachar_animacion(anims, callback=None, t_anim=1.0, t_wait=1.0):
                         nonlocal anims_paralelas, callbacks_paralelos
                         if not isinstance(anims, (list, tuple)):
