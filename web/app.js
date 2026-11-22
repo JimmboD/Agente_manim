@@ -464,7 +464,9 @@ function handleServerStatusUpdate(data) {
     statusPill.className = 'status-indicator ready';
     statusPill.textContent = 'Listo';
     btnRun.disabled = false;
-    btnRunText.textContent = 'Ejecutar main.py';
+    btnRunText.textContent = state.activeFile === 'pasos_algebraicos.txt'
+      ? 'Ejecutar Pasos algebráicos'
+      : 'Ejecutar main.py';
     overlay.classList.add('hidden');
 
     if (data.video_url) {
@@ -1723,7 +1725,8 @@ const shortState = {
   tolerancia: 0.0001,
   codigo_generado: '',
   timerDebounce: null,
-  inicializado: false
+  inicializado: false,
+  recalcSeq: 0
 };
 
 function onEnterShortView() {
@@ -1916,7 +1919,13 @@ async function generarEjercicioAleatorio(soloMetodoActual = false) {
     if (statusText) statusText.textContent = '¡Ejercicio generado!';
     if (summaryRow) summaryRow.classList.remove('hidden');
     if (chipMethod) chipMethod.textContent = data.metodo_nombre || data.metodo_id;
-    if (chipRoot) chipRoot.innerHTML = `Raíz objetivo: <strong>${data.raiz_objetiva}</strong>`;
+    if (chipRoot) {
+      if (data.metodo_id === 'serie_taylor') {
+        chipRoot.innerHTML = `Aproximación en x₀ = <strong>${data.x0}</strong>`;
+      } else {
+        chipRoot.innerHTML = `Raíz objetivo: <strong>${data.raiz_objetiva}</strong>`;
+      }
+    }
     if (chipParam) {
       if (data.metodo_id === 'newton_raphson') {
         chipParam.innerHTML = `Semilla x₀: <strong>${data.x0}</strong>`;
@@ -2268,6 +2277,7 @@ function renderMathPreviewQuick(formulaStr) {
 }
 
 async function recalcularShort() {
+  const requestId = ++shortState.recalcSeq;
   try {
     const res = await fetch('/api/short/generate', {
       method: 'POST',
@@ -2277,6 +2287,8 @@ async function recalcularShort() {
 
     if (!res.ok) return;
     const data = await res.json();
+    // Descarta respuestas de peticiones anteriores (debounce / cambios rápidos).
+    if (requestId !== shortState.recalcSeq) return;
     if (data.status !== 'success') return;
 
     shortState.codigo_generado = data.codigo;

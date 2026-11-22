@@ -21,6 +21,35 @@ def esperar_seguro(escena, segundos):
         escena.wait(float(segundos))
 
 
+def muestrear_funcion(funcion, xs):
+    """Devuelve pares (x, f(x)) alineados, descartando muestras no finitas.
+
+    Indexar `x_vals` con `argmin(y_vals)` era incorrecto cuando se descartaban
+    muestras: los índices de ambas listas dejaban de coincidir.
+    """
+
+    xs_validos = []
+    ys_validos = []
+    for x_value in xs:
+        try:
+            value = funcion(float(x_value))
+            if isinstance(value, complex):
+                continue
+            number = float(value)
+            if not math.isfinite(number):
+                continue
+        except Exception:
+            continue
+        xs_validos.append(float(x_value))
+        ys_validos.append(number)
+
+    if not ys_validos:
+        first, last = float(xs[0]), float(xs[-1])
+        return np.array([first, last]), np.array([-1.0, 1.0])
+
+    return np.array(xs_validos), np.array(ys_validos)
+
+
 class AnimadorGrafico:
     def __init__(self, funcion=None, x_min=-5.0, x_max=5.0, dibujar_grafica_inicial=True, iniciar_con_texto=None, dibujar_plano_inicial=True):
         self.funcion = funcion if funcion is not None else (lambda x: 0.0)
@@ -511,6 +540,10 @@ class AnimadorGrafico:
         dibujar_grafica_inicial = self.dibujar_grafica_inicial
         funcion_es_dummy = self.funcion_es_dummy
 
+        # `nonlocal` permite que el construct reemplace la función al leer un
+        # archivo de pasos; se restaura al terminar para no contaminar el objeto.
+        estado_original = (self.funcion, self.x_min, self.x_max, self.funcion_es_dummy)
+
         if os.environ.get("MANIM_STUDIO_HEADLESS") == "1":
             previsualizar = False
 
@@ -550,20 +583,11 @@ class AnimadorGrafico:
                     
                     # A. Muestreo ultra-denso inicial (10,000 puntos) para buscar picos escurridizos
                     x_vals = np.linspace(a, b, 10000)
-                    y_vals = []
-                    for x in x_vals:
-                        try:
-                            val = f(x)
-                            if not isinstance(val, complex) and not math.isnan(val) and not math.isinf(val):
-                                y_vals.append(val)
-                        except: pass
-                        
-                    if not y_vals: y_vals = [-1, 1] # Fallback de seguridad
-                    y_vals = np.array(y_vals)
-                    
+                    x_vals_validas, y_vals = muestrear_funcion(f, x_vals)
+
                     vmin_aprox, vmax_aprox = np.min(y_vals), np.max(y_vals)
-                    x_min_aprox = x_vals[np.argmin(y_vals)]
-                    x_max_aprox = x_vals[np.argmax(y_vals)]
+                    x_min_aprox = x_vals_validas[np.argmin(y_vals)]
+                    x_max_aprox = x_vals_validas[np.argmax(y_vals)]
 
                     # B. Refinamiento matemático exacto usando SciPy Optimize
                     try:
@@ -867,20 +891,10 @@ class AnimadorGrafico:
                                 vmin_new, vmax_new = float(y_min_req), float(y_max_req)
                             elif f is not None and callable(f) and not funcion_es_dummy:
                                 x_vals_new = np.linspace(a, b, 2000)
-                                y_vals_new = []
-                                for xv in x_vals_new:
-                                    try:
-                                        val = f(xv)
-                                        if not isinstance(val, complex) and not math.isnan(val) and not math.isinf(val):
-                                            y_vals_new.append(val)
-                                    except:
-                                        pass
-                                if not y_vals_new:
-                                    y_vals_new = [-1, 1]
-                                y_vals_new = np.array(y_vals_new)
+                                x_vals_new_validas, y_vals_new = muestrear_funcion(f, x_vals_new)
                                 vmin_aprox, vmax_aprox = float(np.min(y_vals_new)), float(np.max(y_vals_new))
-                                x_min_aprox = x_vals_new[np.argmin(y_vals_new)]
-                                x_max_aprox = x_vals_new[np.argmax(y_vals_new)]
+                                x_min_aprox = x_vals_new_validas[np.argmin(y_vals_new)]
+                                x_max_aprox = x_vals_new_validas[np.argmax(y_vals_new)]
 
                                 try:
                                     res_min = opt.minimize(f, x0=x_min_aprox, bounds=[(a, b)])
@@ -1508,4 +1522,7 @@ class AnimadorGrafico:
 
                     self.wait(2)
             
-            EscenaAutomatica().render()
+            try:
+                EscenaAutomatica().render()
+            finally:
+                self.funcion, self.x_min, self.x_max, self.funcion_es_dummy = estado_original

@@ -56,7 +56,8 @@ TEMPLATE_MAP = {
     "integral": os.path.join("Plantillas", "Cálculo diferencial", "Integral.py"),
     "curva_polinomica": os.path.join("Plantillas", "Álgebra y geometría", "Curva polinómica.py"),
     "hud_algebra": os.path.join("Plantillas", "Álgebra y geometría", "HUD álgebra.py"),
-    "pasos_algebraicos": os.path.join("Plantillas", "Álgebra y geometría", "Pasos algebráicos.txt"),
+    # Archivo de trabajo canónico: el runner lo lee desde la raíz del proyecto.
+    "pasos_algebraicos": "pasos_algebraicos.txt",
     "serie_fourier": os.path.join("Plantillas", "Ecuaciones diferenciales", "Serie de Fourier.py"),
     "purga_ciclo_vida": os.path.join("Plantillas", "Control y ciclo de vida", "Purga ciclo de vida.py"),
     "simplex": os.path.join("Plantillas", "Investigacion de operaciones", "Simplex.py"),
@@ -94,6 +95,29 @@ def find_latest_video_file():
     if video_files:
         return max(video_files, key=os.path.getmtime)
     return None
+
+def terminate_process_tree(proc):
+    """Mata el proceso y sus hijos (ffmpeg/Manim pueden dejar huérfanos)."""
+
+    if not proc or proc.poll() is not None:
+        return
+    try:
+        if os.name == "nt":
+            subprocess.run(
+                ["taskkill", "/F", "/T", "/PID", str(proc.pid)],
+                capture_output=True,
+                text=True,
+                timeout=15,
+            )
+        else:
+            os.killpg(os.getpgid(proc.pid), 15)
+        proc.wait(timeout=5)
+    except Exception:
+        try:
+            proc.kill()
+        except Exception:
+            pass
+
 
 def get_media_duration(file_path):
     """Obtiene la duración exacta en segundos usando ffprobe."""
@@ -950,12 +974,9 @@ def run_main_task(quality="low_quality"):
     """Ejecuta main.py con salida sin búfer y transmite logs en tiempo real vía SSE."""
     global current_main_process
     with process_lock:
-        if current_main_process and current_main_process.poll() is None:
-            try:
-                current_main_process.terminate()
-                time.sleep(0.3)
-            except Exception:
-                pass
+        previous = current_main_process
+        if previous and previous.poll() is None:
+            terminate_process_tree(previous)
 
     broadcast_sse("status", {"state": "rendering", "message": "Iniciando ejecución de main.py..."})
     broadcast_sse("log", {"level": "info", "text": "=========================================================="})
@@ -972,6 +993,8 @@ def run_main_task(quality="low_quality"):
     env["MANIM_QUALITY"] = quality
 
     start_time = time.time()
+    proc = None
+    popen_kwargs = {"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP} if os.name == "nt" else {"start_new_session": True}
     try:
         proc = subprocess.Popen(
             [python_exe, "-u", MAIN_PY_PATH],
@@ -983,9 +1006,11 @@ def run_main_task(quality="low_quality"):
             bufsize=1,
             universal_newlines=True,
             encoding="utf-8",
-            errors="replace"
+            errors="replace",
+            **popen_kwargs,
         )
-        current_main_process = proc
+        with process_lock:
+            current_main_process = proc
 
         for line in proc.stdout:
             line_str = line.rstrip("\r\n")
@@ -1023,7 +1048,9 @@ def run_main_task(quality="low_quality"):
         broadcast_sse("log", {"level": "error", "text": f"[Excepción al ejecutar main.py]: {ex}"})
         broadcast_sse("status", {"state": "error", "message": str(ex)})
     finally:
-        current_main_process = None
+        with process_lock:
+            if current_main_process is proc:
+                current_main_process = None
 
 def run_server(port=5000):
     ThreadingHTTPServer.allow_reuse_address = True
