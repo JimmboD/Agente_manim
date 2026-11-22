@@ -39,6 +39,7 @@ TEMPLATE_MAP = {
     "pasos_algebraicos": os.path.join("Plantillas", "Álgebra y geometría", "Pasos algebráicos.txt"),
     "serie_fourier": os.path.join("Plantillas", "Ecuaciones diferenciales", "Serie de Fourier.py"),
     "purga_ciclo_vida": os.path.join("Plantillas", "Control y ciclo de vida", "Purga ciclo de vida.py"),
+    "simplex": os.path.join("Plantillas", "Investigacion de operaciones", "Simplex.py"),
 }
 
 # Suscriptores de Server-Sent Events (SSE)
