@@ -78,3 +78,12 @@ checkpoints/
 media/
 output/
 renders/
+audios/
+
+# Datos del editor (SQLite, token de sesión, proyectos)
+data/
+projects/
+*.db
+*.db-wal
+*.db-shm
+*.sqlite3
