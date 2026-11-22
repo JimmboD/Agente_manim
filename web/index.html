@@ -101,7 +101,7 @@
         <div class="collapsible-header" data-toggle="nav-views">
           <span class="collapsible-arrow">&blacktriangleright;</span>
           <span class="collapsible-title">VISTAS DE TRABAJO</span>
-          <span class="collapsible-count">5</span>
+          <span class="collapsible-count">6</span>
         </div>
         <div class="collapsible-content collapsed" id="section-nav-views">
           <nav class="nav-menu">
@@ -110,6 +110,13 @@
               <div class="nav-text">
                 <span class="nav-name">Animación manual</span>
                 <span class="nav-desc">Editor de código main.py &bull; Render</span>
+              </div>
+            </button>
+            <button type="button" class="nav-item" data-view="view-editor" id="nav-btn-editor">
+              <span class="nav-sym">✦</span>
+              <div class="nav-text">
+                <span class="nav-name">Editor de escenas</span>
+                <span class="nav-desc">IR editable &bull; Render por jobs</span>
               </div>
             </button>
             <button type="button" class="nav-item" data-view="view-scratch" id="nav-btn-scratch">
@@ -267,6 +274,141 @@
        ======================================================================== -->
   <main class="views-wrapper">
     
+    <!-- ======================================================================
+         VISTA: EDITOR DE ESCENAS (IR + JOBS DE RENDER)
+         La escena se edita desde el IR; el código se regenera y se renderiza
+         en un job aislado. El asistente propone parches sobre el IR.
+         ====================================================================== -->
+    <div id="view-editor" class="app-view">
+      <div class="card glass-card ed-toolbar">
+        <div class="ed-toolbar-fields">
+          <label class="ed-field ed-field-wide">
+            <span>Título</span>
+            <input id="ed-title" type="text" maxlength="120" placeholder="Bisección">
+          </label>
+          <label class="ed-field">
+            <span>Formato</span>
+            <select id="ed-format"></select>
+          </label>
+          <label class="ed-field">
+            <span>Calidad</span>
+            <select id="ed-quality"></select>
+          </label>
+        </div>
+        <div class="ed-toolbar-actions">
+          <label class="ed-check ed-auto-preview">
+            <input id="ed-auto-preview" type="checkbox" checked>
+            <span>Auto-render</span>
+          </label>
+          <span id="ed-status" class="ed-status">Cargando…</span>
+          <button id="ed-save" class="btn btn-secondary btn-sm" type="button">Guardar</button>
+          <button id="ed-render" class="btn btn-primary btn-sm" type="button">Renderizar</button>
+          <button id="ed-cancel" class="btn btn-secondary btn-sm hidden" type="button">Cancelar</button>
+        </div>
+      </div>
+
+      <div class="ed-layout">
+        <section class="card glass-card ed-panel">
+          <div class="card-header">
+            <div class="card-title-group">
+              <span class="step-badge">ƒ</span>
+              <div>
+                <h2 class="card-title">Escena</h2>
+                <p class="card-desc">La fuente de verdad es el IR; el código se regenera solo.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="ed-form">
+            <label class="ed-field">
+              <span>Función (LaTeX)</span>
+              <input id="ed-fn-latex" type="text" spellcheck="false" placeholder="f(x) = e^{x} - 3x^{2}">
+            </label>
+            <label class="ed-field">
+              <span>Función (Python)</span>
+              <input id="ed-fn-python" type="text" spellcheck="false" placeholder="math.exp(x) - 3 * (x ** 2)">
+            </label>
+
+            <div class="ed-grid-2">
+              <label class="ed-field"><span>Dominio x mín</span><input id="ed-domain-min" type="number" step="0.1"></label>
+              <label class="ed-field"><span>Dominio x máx</span><input id="ed-domain-max" type="number" step="0.1"></label>
+              <label class="ed-field"><span>a</span><input id="ed-a" type="number" step="0.01"></label>
+              <label class="ed-field"><span>b</span><input id="ed-b" type="number" step="0.01"></label>
+              <label class="ed-field"><span>Tolerancia</span><input id="ed-tolerance" type="number" step="0.0001"></label>
+              <label class="ed-field"><span>Iteraciones</span><input id="ed-iterations" type="number" min="1" max="20"></label>
+            </div>
+
+            <div class="ed-grid-2">
+              <label class="ed-field">
+                <span>Posición del HUD</span>
+                <select id="ed-hud">
+                  <option value="UL">Arriba izquierda</option>
+                  <option value="UR">Arriba derecha</option>
+                  <option value="DL">Abajo izquierda</option>
+                  <option value="DR">Abajo derecha</option>
+                </select>
+              </label>
+              <label class="ed-field"><span>Acento</span><input id="ed-accent" type="color"></label>
+              <label class="ed-field"><span>Color del resultado</span><input id="ed-result-color" type="color"></label>
+              <label class="ed-field ed-check-field">
+                <span>Cuadrícula</span>
+                <input id="ed-grid" type="checkbox">
+              </label>
+            </div>
+          </div>
+
+          <div class="ed-beats-header">
+            <h3>Ritmo de la escena</h3>
+            <span id="ed-total-duration" class="ed-muted"></span>
+          </div>
+          <div id="ed-beats" class="ed-beats"></div>
+        </section>
+
+        <section class="card glass-card ed-preview">
+          <div class="card-header">
+            <div class="card-title-group">
+              <span class="step-badge">▶</span>
+              <div>
+                <h2 class="card-title">Previsualización</h2>
+                <p class="card-desc" id="ed-render-meta">Sin render todavía.</p>
+              </div>
+            </div>
+            <span id="ed-job-badge" class="ed-badge">inactivo</span>
+          </div>
+
+          <div class="ed-video-wrap">
+            <video id="ed-video" controls playsinline preload="metadata"></video>
+            <div id="ed-video-empty" class="ed-video-empty">Renderiza la escena para verla aquí.</div>
+          </div>
+
+          <pre id="ed-log" class="ed-log" aria-live="polite"></pre>
+        </section>
+
+        <section class="card glass-card ed-chat">
+          <div class="card-header">
+            <div class="card-title-group">
+              <span class="step-badge">✦</span>
+              <div>
+                <h2 class="card-title">Asistente</h2>
+                <p class="card-desc">Pide cambios en lenguaje natural.</p>
+              </div>
+            </div>
+          </div>
+
+          <div id="ed-chat-log" class="ed-chat-log"></div>
+
+          <form id="ed-chat-form" class="ed-chat-form">
+            <textarea id="ed-chat-input" rows="3" placeholder="P. ej. hazlo más rápido y cámbialo a 9:16"></textarea>
+            <label class="ed-check">
+              <input id="ed-auto-render" type="checkbox" checked>
+              <span>Renderizar tras cada cambio</span>
+            </label>
+            <button type="submit" class="btn btn-primary">Enviar</button>
+          </form>
+        </section>
+      </div>
+    </div>
+
     <!-- ======================================================================
          VISTA 1: ANIMACIÓN MANUAL (WORKFLOW MAIN.PY AJUSTADO A PANTALLA)
          El editor y la salida visual se adaptan al 100vh de pantalla sin scroll.
@@ -1463,6 +1605,8 @@
     </div>
   </div>
 
+  <script src="/session.js?v=1"></script>
   <script src="/app.js?v=2"></script>
+  <script src="/editor.js?v=1"></script>
 </body>
 </html>

@@ -3374,3 +3374,315 @@ body {
   color: #58C4DD;
 }
 
+
+/* ==========================================================================
+   EDITOR DE ESCENAS (IR + JOBS)
+   ========================================================================== */
+.ed-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  padding: 0.9rem 1.15rem;
+}
+
+.ed-toolbar-fields {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.85rem;
+  flex: 1 1 420px;
+}
+
+.ed-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.ed-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  min-width: 8rem;
+  flex: 1 1 8rem;
+}
+
+.ed-field-wide {
+  flex: 2 1 16rem;
+}
+
+.ed-field > span {
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-subtle);
+}
+
+.ed-field input,
+.ed-field select,
+.ed-chat-form textarea {
+  background: var(--input-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-primary);
+  font-family: var(--font-main);
+  font-size: 0.86rem;
+  padding: 0.5rem 0.6rem;
+  width: 100%;
+  transition: border-color var(--transition-fast);
+}
+
+.ed-field input:focus,
+.ed-field select:focus,
+.ed-chat-form textarea:focus {
+  outline: none;
+  border-color: var(--card-border-hover);
+}
+
+.ed-field input[type="color"] {
+  padding: 0.15rem;
+  height: 2.1rem;
+  cursor: pointer;
+}
+
+.ed-check-field {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.ed-check-field input {
+  width: auto;
+}
+
+.ed-status {
+  font-size: 0.76rem;
+  color: var(--color-subtle);
+  max-width: 22rem;
+}
+
+.ed-status[data-kind="ok"] { color: #a6e3a1; }
+.ed-status[data-kind="error"] { color: #f38ba8; }
+
+.ed-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.2fr) minmax(0, 0.9fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+@media (max-width: 1400px) {
+  .ed-layout { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .ed-chat { grid-column: 1 / -1; }
+}
+
+@media (max-width: 900px) {
+  .ed-layout { grid-template-columns: 1fr; }
+  .ed-chat { grid-column: auto; }
+}
+
+.ed-panel,
+.ed-preview,
+.ed-chat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.ed-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+.ed-grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.7rem;
+}
+
+.ed-beats-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  border-top: 1px solid var(--card-border);
+  padding-top: 0.75rem;
+}
+
+.ed-beats-header h3 {
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.ed-muted {
+  font-size: 0.74rem;
+  color: var(--color-subtle);
+}
+
+.ed-beats {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  max-height: 20rem;
+  overflow-y: auto;
+}
+
+.ed-beat-row {
+  display: grid;
+  grid-template-columns: 1.4rem 5.2rem minmax(0, 1fr) 4rem 4rem;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.ed-beat-head {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-subtle);
+  position: sticky;
+  top: 0;
+  background: var(--card-bg);
+  padding-bottom: 0.2rem;
+}
+
+.ed-beat-kind {
+  font-family: var(--font-code);
+  font-size: 0.7rem;
+  color: var(--color-subtle);
+}
+
+.ed-beat-row input[type="text"],
+.ed-beat-row input[type="number"] {
+  background: var(--input-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 6px;
+  color: var(--color-primary);
+  font-size: 0.76rem;
+  padding: 0.3rem 0.4rem;
+  min-width: 0;
+}
+
+.ed-badge {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  padding: 0.25rem 0.6rem;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--card-border);
+  color: var(--color-subtle);
+}
+
+.ed-badge[data-status="running"],
+.ed-badge[data-status="queued"] {
+  color: #89b4fa;
+  border-color: rgba(137, 180, 250, 0.5);
+}
+
+.ed-badge[data-status="listo"] { color: #a6e3a1; border-color: rgba(166, 227, 161, 0.5); }
+.ed-badge[data-status="error"] { color: #f38ba8; border-color: rgba(243, 139, 168, 0.5); }
+
+.ed-video-wrap {
+  position: relative;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: #000;
+  aspect-ratio: 16 / 9;
+  border: 1px solid var(--card-border);
+}
+
+.ed-video-wrap video {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: none;
+}
+
+.ed-video-wrap video.has-video {
+  display: block;
+}
+
+.ed-video-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-subtle);
+  font-size: 0.82rem;
+  text-align: center;
+  padding: 1rem;
+}
+
+.ed-log {
+  font-family: var(--font-code);
+  font-size: 0.7rem;
+  line-height: 1.45;
+  color: var(--color-subtle);
+  background: var(--input-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-sm);
+  padding: 0.6rem;
+  height: 12rem;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin: 0;
+}
+
+.ed-chat-log {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  height: 22rem;
+  overflow-y: auto;
+  padding-right: 0.2rem;
+}
+
+.ed-chat-msg {
+  font-size: 0.82rem;
+  line-height: 1.45;
+  padding: 0.55rem 0.7rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--card-border);
+  white-space: pre-wrap;
+}
+
+.ed-chat-user {
+  background: var(--card-bg-elevated);
+  align-self: flex-end;
+  max-width: 92%;
+}
+
+.ed-chat-assistant {
+  background: transparent;
+  border-style: dashed;
+}
+
+.ed-chat-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.ed-chat-form textarea {
+  resize: vertical;
+  min-height: 3.4rem;
+  font-family: var(--font-main);
+}
+
+.ed-check {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.76rem;
+  color: var(--color-subtle);
+}
+
+.ed-check input {
+  accent-color: var(--color-primary);
+}

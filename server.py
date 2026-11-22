@@ -18,6 +18,26 @@ import random
 from urllib.parse import urlparse, parse_qs
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 
+from app.api import EditorAPI
+from app.config import (
+    ALLOWED_AUDIO_EXTENSIONS,
+    DB_PATH,
+    MAX_UPLOAD_BYTES,
+    TOKEN_PATH,
+    ensure_directories,
+)
+from app.db import Database
+from app.jobs import JobManager
+from app.llm import get_provider
+from app.security import (
+    UnsafePathError,
+    allowed_origins,
+    ensure_token,
+    origin_is_allowed,
+    safe_join,
+    token_matches,
+)
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 WEB_DIR = os.path.join(BASE_DIR, "web")
 MEDIA_DIR = os.path.join(BASE_DIR, "media")
@@ -87,6 +107,39 @@ def get_media_duration(file_path):
         return 0.0
 
 _generador_ejercicios_mod = None
+
+# ---------------------------------------------------------------------------
+# Editor de escenas (SQLite + jobs de render + proveedor LLM)
+# ---------------------------------------------------------------------------
+_editor_lock = threading.Lock()
+_editor_api = None
+_editor_token = None
+
+
+def get_editor_token():
+    global _editor_token
+    if _editor_token is None:
+        ensure_directories()
+        _editor_token = ensure_token(TOKEN_PATH)
+    return _editor_token
+
+
+def get_editor_api():
+    global _editor_api
+    if _editor_api is None:
+        with _editor_lock:
+            if _editor_api is None:
+                ensure_directories()
+                db = Database(DB_PATH)
+                jobs = JobManager(db, broadcast=broadcast_sse)
+                _editor_api = EditorAPI(
+                    db,
+                    jobs,
+                    get_provider("mock"),
+                    token=get_editor_token(),
+                )
+    return _editor_api
+
 
 def obtener_generador_ejercicios():
     global _generador_ejercicios_mod
@@ -211,18 +264,64 @@ class ManimStudioHandler(BaseHTTPRequestHandler):
         pass
 
     def send_cors_headers(self):
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        """Solo refleja el Origin si es de confianza (localhost del propio puerto)."""
+
+        origin = self.headers.get("Origin")
+        if origin:
+            port = self.server.server_address[1]
+            if origin_is_allowed(origin, allowed_origins(port)):
+                self.send_header("Access-Control-Allow-Origin", origin)
+                self.send_header("Vary", "Origin")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, PUT, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, X-Session-Token")
+        self.send_header("Access-Control-Allow-Credentials", "true")
+
+    def origin_is_trusted(self):
+        origin = self.headers.get("Origin")
+        port = self.server.server_address[1]
+        return origin_is_allowed(origin, allowed_origins(port))
+
+    def require_trusted_origin(self):
+        if self.origin_is_trusted():
+            return True
+        self.send_response(403)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.end_headers()
+        self.wfile.write(json.dumps({"error": "Origen no permitido."}).encode("utf-8"))
+        return False
+
+    def require_token(self):
+        provided = self.headers.get("X-Session-Token")
+        if token_matches(get_editor_token(), provided):
+            return True
+        self.send_response(403)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.end_headers()
+        self.wfile.write(
+            json.dumps({
+                "error": "Token de sesión ausente o inválido.",
+                "hint": "Abre la app en http://127.0.0.1:%d/" % self.server.server_address[1],
+            }).encode("utf-8")
+        )
+        return False
 
     def do_OPTIONS(self):
-        self.send_response(200)
+        if not self.require_trusted_origin():
+            return
+        self.send_response(204)
         self.send_cors_headers()
         self.end_headers()
 
     def do_GET(self):
         parsed = urlparse(self.path)
         path = parsed.path
+
+        if not self.require_trusted_origin():
+            return
+
+        editor = get_editor_api()
+        if editor.handle(self, "GET", path, parse_qs(parsed.query), b""):
+            return
 
         # 1. Eventos SSE para streaming en tiempo real
         if path == "/api/events":
@@ -315,9 +414,12 @@ class ManimStudioHandler(BaseHTTPRequestHandler):
 
             if not file_path and req_file:
                 clean_rel = req_file.lstrip("/\\").replace("\\", "/")
-                candidate = os.path.normpath(os.path.join(BASE_DIR, "Plantillas", clean_rel))
-                if os.path.isfile(candidate):
-                    file_path = candidate
+                try:
+                    candidate = safe_join(os.path.join(BASE_DIR, "Plantillas"), clean_rel)
+                except UnsafePathError:
+                    candidate = None
+                if candidate and os.path.isfile(candidate):
+                    file_path = str(candidate)
 
             if not file_path and template_id:
                 clean_id = template_id.lower().replace("-", "_").replace(" ", "_")
@@ -394,9 +496,13 @@ class ManimStudioHandler(BaseHTTPRequestHandler):
         # 4. Servir archivos multimedia (videos MP4 generados con soporte Range)
         if path.startswith("/media/"):
             rel_path = path[len("/media/"):]
-            full_path = os.path.normpath(os.path.join(MEDIA_DIR, rel_path))
-            if os.path.isfile(full_path):
-                self.serve_file_with_range(full_path, "video/mp4")
+            try:
+                full_path = safe_join(MEDIA_DIR, rel_path)
+            except UnsafePathError:
+                self.send_error(404, "Video no encontrado")
+                return
+            if full_path.is_file():
+                self.serve_file_with_range(str(full_path), "video/mp4")
                 return
             else:
                 self.send_error(404, "Video no encontrado")
@@ -405,12 +511,16 @@ class ManimStudioHandler(BaseHTTPRequestHandler):
         # 4b. Servir archivos de audio con soporte Range
         if path.startswith("/audios/"):
             rel_path = path[len("/audios/"):]
-            full_path = os.path.normpath(os.path.join(AUDIO_DIR, rel_path))
-            if os.path.isfile(full_path):
-                mime, _ = mimetypes.guess_type(full_path)
+            try:
+                full_path = safe_join(AUDIO_DIR, rel_path)
+            except UnsafePathError:
+                self.send_error(404, "Audio no encontrado")
+                return
+            if full_path.is_file():
+                mime, _ = mimetypes.guess_type(str(full_path))
                 if not mime or not mime.startswith("audio/"):
                     mime = "audio/mpeg"
-                self.serve_file_with_range(full_path, mime)
+                self.serve_file_with_range(str(full_path), mime)
                 return
             else:
                 self.send_error(404, "Audio no encontrado")
@@ -421,7 +531,11 @@ class ManimStudioHandler(BaseHTTPRequestHandler):
             file_path = os.path.join(WEB_DIR, "index.html")
         else:
             rel_path = path.lstrip("/")
-            file_path = os.path.normpath(os.path.join(WEB_DIR, rel_path))
+            try:
+                file_path = str(safe_join(WEB_DIR, rel_path))
+            except UnsafePathError:
+                self.send_error(404, f"Ruta no encontrada: {path}")
+                return
 
         if os.path.isfile(file_path):
             mime, _ = mimetypes.guess_type(file_path)
@@ -506,6 +620,15 @@ class ManimStudioHandler(BaseHTTPRequestHandler):
         length = int(self.headers.get("Content-Length", 0))
         body = self.rfile.read(length)
 
+        if not self.require_trusted_origin():
+            return
+        if not self.require_token():
+            return
+
+        editor = get_editor_api()
+        if editor.handle(self, "POST", path, parse_qs(parsed.query), body):
+            return
+
         # 1. Guardar cambios en el archivo activo (main.py o pasos_algebraicos.txt)
         if path == "/api/save_main":
             try:
@@ -535,11 +658,24 @@ class ManimStudioHandler(BaseHTTPRequestHandler):
         # 1b. Subir archivo de audio local al servidor
         if path == "/api/upload_audio":
             try:
+                if len(body) > MAX_UPLOAD_BYTES:
+                    self.send_response(413)
+                    self.send_cors_headers()
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"error": "El audio supera el límite de 50 MB."}).encode("utf-8"))
+                    return
                 raw_filename = self.headers.get("X-Filename", "audio.mp3")
                 clean_name = os.path.basename(raw_filename).replace(" ", "_")
+                extension = os.path.splitext(clean_name)[1].lower()
+                if extension not in ALLOWED_AUDIO_EXTENSIONS:
+                    self.send_response(415)
+                    self.send_cors_headers()
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"error": f"Extensión no permitida: {extension or '(sin extensión)'}"}).encode("utf-8"))
+                    return
                 if not clean_name:
                     clean_name = f"audio_{int(time.time())}.mp3"
-                dest_path = os.path.join(AUDIO_DIR, clean_name)
+                dest_path = str(safe_join(AUDIO_DIR, clean_name))
                 with open(dest_path, "wb") as f:
                     f.write(body)
                 self.send_response(200)
@@ -571,9 +707,13 @@ class ManimStudioHandler(BaseHTTPRequestHandler):
                 video_path = None
                 if video_url:
                     clean_rel = video_url.split("?")[0].lstrip("/")
-                    candidate = os.path.normpath(os.path.join(BASE_DIR, clean_rel))
-                    if os.path.isfile(candidate):
-                        video_path = candidate
+                    if clean_rel.startswith("media/"):
+                        try:
+                            candidate = safe_join(MEDIA_DIR, clean_rel[len("media/"):])
+                        except UnsafePathError:
+                            candidate = None
+                        if candidate and candidate.is_file():
+                            video_path = str(candidate)
                 if not video_path:
                     video_path = find_latest_video_file()
 
@@ -586,17 +726,22 @@ class ManimStudioHandler(BaseHTTPRequestHandler):
 
                 # 2. Localizar archivo de audio
                 clean_audio_name = os.path.basename(audio_name)
-                audio_path = os.path.join(AUDIO_DIR, clean_audio_name)
-                if not os.path.isfile(audio_path):
-                    audio_candidates = glob.glob(os.path.join(AUDIO_DIR, "*"))
-                    if audio_candidates:
-                        audio_path = audio_candidates[0]
-                    else:
-                        self.send_response(400)
-                        self.send_cors_headers()
-                        self.end_headers()
-                        self.wfile.write(json.dumps({"error": f"Audio '{clean_audio_name}' no encontrado en el servidor."}).encode("utf-8"))
-                        return
+                if not clean_audio_name:
+                    self.send_response(400)
+                    self.send_cors_headers()
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"error": "Debes indicar el nombre del audio."}).encode("utf-8"))
+                    return
+                try:
+                    audio_path = str(safe_join(AUDIO_DIR, clean_audio_name))
+                except UnsafePathError:
+                    audio_path = ""
+                if not audio_path or not os.path.isfile(audio_path):
+                    self.send_response(400)
+                    self.send_cors_headers()
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"error": f"Audio '{clean_audio_name}' no encontrado en el servidor."}).encode("utf-8"))
+                    return
 
                 # 3. Obtener duración exacta del video con ffprobe
                 duration = get_media_duration(video_path)
@@ -605,7 +750,8 @@ class ManimStudioHandler(BaseHTTPRequestHandler):
 
                 exports_dir = os.path.join(MEDIA_DIR, "exports")
                 os.makedirs(exports_dir, exist_ok=True)
-                output_name = "EscenaAutomatica_con_audio.mp4"
+                base_name = os.path.splitext(os.path.basename(video_path))[0]
+                output_name = f"{base_name}_con_audio_{int(time.time())}.mp4"
                 output_path = os.path.join(exports_dir, output_name)
 
                 # 4. FFmpeg: Extraer sección del audio, sincronizar y empaquetar con el video
@@ -780,6 +926,22 @@ class ManimStudioHandler(BaseHTTPRequestHandler):
             return
 
         self.send_error(404, "Endpoint POST no encontrado")
+
+    def do_PUT(self):
+        parsed = urlparse(self.path)
+        length = int(self.headers.get("Content-Length", 0))
+        body = self.rfile.read(length)
+
+        if not self.require_trusted_origin():
+            return
+        if not self.require_token():
+            return
+
+        editor = get_editor_api()
+        if editor.handle(self, "PUT", parsed.path, parse_qs(parsed.query), body):
+            return
+
+        self.send_error(404, "Endpoint PUT no encontrado")
 
 current_main_process = None
 process_lock = threading.Lock()

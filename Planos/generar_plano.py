@@ -8,6 +8,19 @@ from Algebra.ExtraerLATEX import extraer_texto_colores
 from Planos.rutinas_parametricas import render_convergencia_secante
 from contextlib import contextmanager
 
+# Relación de aspecto activa (ancho / alto). El editor la inyecta por entorno
+# para poder renderizar 16:9, 9:16 y 1:1 con el mismo motor.
+ASPECTO = float(os.environ.get("MANIM_ASPECT", str(16 / 9)))
+RAIZ_PROYECTO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+def esperar_seguro(escena, segundos):
+    """`self.wait(0)` lanza ValueError en Manim; se omite si no hay espera."""
+
+    if segundos and float(segundos) > 0:
+        escena.wait(float(segundos))
+
+
 class AnimadorGrafico:
     def __init__(self, funcion=None, x_min=-5.0, x_max=5.0, dibujar_grafica_inicial=True, iniciar_con_texto=None, dibujar_plano_inicial=True):
         self.funcion = funcion if funcion is not None else (lambda x: 0.0)
@@ -487,7 +500,9 @@ class AnimadorGrafico:
         finally:
             self.cerrar_bloque_paralelo(tiempo_animacion=tiempo_animacion, tiempo_espera=tiempo_espera)
 
-    def render(self, previsualizar=True):
+    def render(self, previsualizar=True, calidad=None, formato=None, media_dir=None):
+        global ASPECTO
+
         f = self.funcion
         a, b = self.x_min, self.x_max
         acciones = self.cola_animaciones
@@ -499,9 +514,34 @@ class AnimadorGrafico:
         if os.environ.get("MANIM_STUDIO_HEADLESS") == "1":
             previsualizar = False
 
-        calidad = os.environ.get("MANIM_QUALITY", "low_quality")
-        
-        with tempconfig({"quality": calidad, "preview": previsualizar}):
+        calidad = calidad or os.environ.get("MANIM_QUALITY", "low_quality")
+        formato = formato or os.environ.get("MANIM_FORMAT", "16:9")
+        ASPECTO = {
+            "16:9": 16 / 9,
+            "9:16": 9 / 16,
+            "1:1": 1.0,
+        }.get(formato, ASPECTO)
+
+        altura_px = {
+            "low_quality": 480,
+            "medium_quality": 720,
+            "high_quality": 1080,
+        }.get(calidad, 480)
+        alto_px = altura_px - (altura_px % 2)
+        ancho_px = int(round(altura_px * ASPECTO))
+        ancho_px -= ancho_px % 2
+
+        media_dir = media_dir or os.environ.get("MANIM_MEDIA_DIR") or os.path.join(RAIZ_PROYECTO, "media")
+
+        with tempconfig({
+            "quality": calidad,
+            "preview": previsualizar,
+            "frame_height": 8.0,
+            "frame_width": 8.0 * ancho_px / alto_px,
+            "pixel_width": ancho_px,
+            "pixel_height": alto_px,
+            "media_dir": media_dir,
+        }):
             
             class EscenaAutomatica(MovingCameraScene):
                 def construct(self):
@@ -547,8 +587,8 @@ class AnimadorGrafico:
                     c_x = a + (dist_x_real / 2)
                     c_y = vmin + (dist_y_real / 2)
 
-                    ancho_camara = max(dist_x, dist_y * (16/9))
-                    alto_camara = ancho_camara / (16/9)
+                    ancho_camara = max(dist_x, dist_y * ASPECTO)
+                    alto_camara = ancho_camara / ASPECTO
 
                     x_vis_min = c_x - ancho_camara / 2
                     x_vis_max = c_x + ancho_camara / 2
@@ -648,8 +688,7 @@ class AnimadorGrafico:
                             if callback:
                                 callback()
                             if t_wait > 0:
-                                self.wait(t_wait)
-
+                                esperar_seguro(self, t_wait)
                     # --- PROCESAMIENTO DE ACCIONES ---
                     for accion in acciones:
                         t_anim = accion.get("t_anim", 1.0)
@@ -676,8 +715,7 @@ class AnimadorGrafico:
                                     print(f"Advertencia en callback paralelo: {e}")
 
                             if t_wait_paralelo > 0:
-                                self.wait(t_wait_paralelo)
-
+                                esperar_seguro(self, t_wait_paralelo)
                             modo_paralelo = False
                             self.recolectando_paralelo = False
                             anims_paralelas = []
@@ -807,8 +845,7 @@ class AnimadorGrafico:
                             # Si es un área sólida, la difuminamos suavemente para no trazar al revés
                             else:
                                 self.play(FadeIn(area), run_time=t_anim)
-                            self.wait(t_wait)
-
+                            esperar_seguro(self, t_wait)
                         elif accion["tipo"] in ["fade_in_plano", "nuevo_plano"]:
                             f_nueva = accion.get("funcion")
                             if f_nueva is not None and callable(f_nueva):
@@ -869,8 +906,8 @@ class AnimadorGrafico:
                             c_x_new = a + (dist_x_real / 2.0)
                             c_y_new = vmin_new + (dist_y_real / 2.0)
 
-                            ancho_camara = max(dist_x, dist_y * (16.0 / 9.0))
-                            alto_camara = ancho_camara / (16.0 / 9.0)
+                            ancho_camara = max(dist_x, dist_y * ASPECTO)
+                            alto_camara = ancho_camara / ASPECTO
 
                             x_vis_min = c_x_new - ancho_camara / 2.0
                             x_vis_max = c_x_new + ancho_camara / 2.0
@@ -1026,8 +1063,7 @@ class AnimadorGrafico:
                             if obj_id:
                                 self.objetos_registrados[obj_id] = grp_sec
                             self.ultimos_objetos.append(grp_sec)
-                            self.wait(t_wait)
-
+                            esperar_seguro(self, t_wait)
                         elif accion["tipo"] == "a_texto":
                             self.elementos_graficos = [m for m in self.mobjects if isinstance(m, VMobject) and m is not self.camera.frame]
                             self.grupo_graficos = VGroup(*self.elementos_graficos)
@@ -1067,8 +1103,7 @@ class AnimadorGrafico:
                                 despachar_animacion([ReplacementTransform(self.texto_central, grupo_copia)], post_plano, t_anim, t_wait)
                             else:
                                 if not modo_paralelo and t_wait > 0:
-                                    self.wait(t_wait)
-
+                                    esperar_seguro(self, t_wait)
                         elif accion["tipo"] == "algebra":
                             if not hasattr(self, "elementos_graficos") or not self.elementos_graficos:
                                 self.elementos_graficos = [m for m in self.mobjects if isinstance(m, VMobject) and m is not self.camera.frame]
@@ -1148,7 +1183,7 @@ class AnimadorGrafico:
                                 mob_destino.scale(ancho_camara / 20)
 
                             buff_x = ancho_camara * 0.03
-                            buff_y = ancho_camara * 0.03 * (9 / 16)
+                            buff_y = ancho_camara * 0.03 / ASPECTO
                             offset = -vector_pos[0] * RIGHT * buff_x + -vector_pos[1] * UP * buff_y
 
                             esquina_camara = self.camera.frame.get_corner(vector_pos)
@@ -1220,8 +1255,7 @@ class AnimadorGrafico:
                                 if obj_id:
                                     self.objetos_registrados[obj_id] = linea
                                 self.ultimos_objetos.append(linea)
-                                self.wait(t_wait)
-
+                                esperar_seguro(self, t_wait)
                         elif accion["tipo"] == "llave":
                             if modo_paralelo:
                                 x1_f, x2_f = accion["x1_fin"], accion["x2_fin"]
@@ -1302,8 +1336,7 @@ class AnimadorGrafico:
                                 if obj_id:
                                     self.objetos_registrados[obj_id] = obj_final
                                 self.ultimos_objetos.append(obj_final)
-                                self.wait(t_wait)
-
+                                esperar_seguro(self, t_wait)
                         elif accion["tipo"] == "transformar_objeto":
                             origen_id = accion.get("origen")
                             origen_mob = None

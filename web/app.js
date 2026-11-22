@@ -172,6 +172,7 @@ function switchView(viewId) {
   const tabLabel = document.getElementById('active-tab-label');
   const titles = {
     'view-manual': 'Animación manual',
+    'view-editor': 'Editor de escenas',
     'view-scratch': 'Insertar funciones',
     'view-short': 'Creador de Shorts',
     'view-settings': 'Ajustes',
@@ -179,6 +180,11 @@ function switchView(viewId) {
   };
   if (tabLabel && titles[viewId]) {
     tabLabel.textContent = titles[viewId];
+  }
+
+  // El editor de escenas carga su escena la primera vez que se abre.
+  if (viewId === 'view-editor' && window.EditorView) {
+    window.EditorView.activate();
   }
 
   // Activar inicializador o refresco al entrar a view-short
