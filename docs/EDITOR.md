@@ -72,7 +72,8 @@ y el encuadre de la cámara a la relación de aspecto activa.
 ```
 
 Cubren seguridad de rutas y tokens, validación del IR, generación de código,
-SQLite y el proveedor LLM simulado.
+SQLite, el proveedor LLM simulado, el muestreo del motor de escenas y la
+cancelación del render reemplazado.
 
 ## Proveedor LLM
 
