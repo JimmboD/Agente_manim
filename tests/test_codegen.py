@@ -1,8 +1,8 @@
 import ast
 import unittest
 
-from app.codegen import code_diff, generate_code, validate_generated_code
-from app.ir import default_ir
+from manim_studio.editor.codegen import code_diff, generate_code, validate_generated_code
+from manim_studio.editor.ir import default_ir
 
 
 class CodegenTests(unittest.TestCase):

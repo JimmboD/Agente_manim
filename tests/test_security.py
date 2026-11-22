@@ -1,6 +1,6 @@
 import unittest
 
-from app.security import (
+from manim_studio.editor.security import (
     UnsafePathError,
     ensure_token,
     normalize_origin,

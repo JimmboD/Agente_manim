@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "manim-studio"
+version = "0.1.0"
+description = "Editor local de animaciones matemáticas con Manim"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "manim==0.21.0",
+  "numpy>=2.0",
+  "scipy>=1.12",
+  "sympy>=1.13",
+  "Pillow>=10",
+]
+
+[project.scripts]
+manim-studio = "manim_studio.lanzador:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

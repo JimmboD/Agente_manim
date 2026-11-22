@@ -1,0 +1,1 @@
+"""Plantillas de algebra geometria."""

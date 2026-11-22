@@ -2,7 +2,7 @@ import unittest
 
 import numpy as np
 
-from Planos.generar_plano import muestrear_funcion
+from manim_studio.motor.planos.generar_plano import muestrear_funcion
 
 
 class MuestreoFuncionTests(unittest.TestCase):

@@ -1,6 +1,6 @@
 import unittest
 
-from app.ir import (
+from manim_studio.editor.ir import (
     IRValidationError,
     default_ir,
     evaluate_expression,

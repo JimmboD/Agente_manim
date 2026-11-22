@@ -2,8 +2,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from app.db import Database
-from app.ir import default_ir
+from manim_studio.editor.db import Database
+from manim_studio.editor.ir import default_ir
 
 
 class DatabaseTests(unittest.TestCase):

@@ -1,0 +1,63 @@
+/* ==========================================================================
+   PIZARRA ANALÍTICA — tokens compartidos por todas las vistas
+   Se carga antes que index.css; components.css aplica los overrides finales.
+   ========================================================================== */
+
+:root {
+  --font-display: 'STIX Two Text', Georgia, serif;
+  --font-ui: 'IBM Plex Sans', system-ui, sans-serif;
+  --font-code: 'JetBrains Mono', ui-monospace, monospace;
+
+  --ink-0: #0a0c0f;
+  --ink-1: #111419;
+  --ink-2: #171b21;
+  --ink-3: #1e242c;
+  --line: #252b34;
+  --line-strong: #333b47;
+  --text: #e7e9ec;
+  --muted: #8b939e;
+  --accent: var(--color-primary, #ffffff);
+  --ok: #8fd6a8;
+  --warn: #e7c58a;
+  --error: #e8a0a0;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+
+  --motion-fast: 120ms ease;
+  --motion-base: 200ms ease;
+}
+
+body {
+  --font-main: var(--font-ui);
+}
+
+.font-display,
+h1, h2, h3, h4,
+.card-title,
+.brand-title,
+.drawer-title,
+.settings-box-title,
+.short-main-title {
+  font-family: var(--font-display);
+  font-weight: 500;
+  letter-spacing: -0.015em;
+}
+
+.code-font,
+.ed-code-source,
+.ed-log,
+pre,
+code,
+kbd {
+  font-family: var(--font-code);
+}

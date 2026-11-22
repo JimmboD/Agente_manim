@@ -74,16 +74,22 @@ desktop.ini
 *.joblib
 checkpoints/
 
-# Salidas de render y medios pesados
+# Salidas de render, medios y datos locales del editor
+var/
+audios/
 media/
 output/
 renders/
-audios/
-
-# Datos del editor (SQLite, token de sesión, proyectos)
-data/
 projects/
 *.db
 *.db-wal
 *.db-shm
 *.sqlite3
+
+# Grabaciones de audio: nunca se versionan
+*.mp3
+*.wav
+*.m4a
+*.ogg
+*.flac
+*.aac

@@ -1,6 +1,6 @@
 # «Pizarra Analítica» — Sistema visual del Animador Matemático
 
-> Guía abstracta extraída de `Plantillas/` y `Planos/generar_plano.py`.
+> Guía abstracta extraída de `src/manim_studio/motor/plantillas/` y `src/manim_studio/motor/planos/generar_plano.py`.
 > No describe una plantilla concreta: describe **las reglas que hacen que todas se vean como el mismo canal**.
 > Sirve como referencia humana y como base del prompt de sistema (`docs/PROMPT_SISTEMA_MANIM.md`).
 
@@ -226,10 +226,10 @@ Nunca más de **3 mobjects** animándose a la vez, salvo la revelación final.
 
 ## 10. Implementación de referencia
 
-Este bloque puede convertirse en `Plantillas/estilo.py` para que todas las escenas compartan constantes y helpers.
+Este bloque puede convertirse en `src/manim_studio/motor/plantillas/estilo.py` para que todas las escenas compartan constantes y helpers.
 
 ```python
-# Plantillas/estilo.py — constantes y helpers del sistema «Pizarra Analítica»
+# src/manim_studio/motor/plantillas/estilo.py — constantes y helpers del sistema «Pizarra Analítica»
 from manim import *
 import math
 
@@ -320,7 +320,7 @@ def etiqueta_punto(punto: Mobject, tex: str, ancho_camara: float) -> MathTex:
 **Uso mínimo**
 
 ```python
-from Plantillas.estilo import ESTILO, panel_hud, banner_resultado, etiqueta_punto
+from manim_studio.motor.plantillas.estilo import ESTILO, panel_hud, banner_resultado, etiqueta_punto
 
 hud = panel_hud(MathTex(r"f(x) = x^2 - 2"), esquina=UR, ancho_camara=14.0)
 banner = banner_resultado(MathTex(r"x^* = \sqrt{2}", color=ESTILO["exito"]))
@@ -328,4 +328,36 @@ banner = banner_resultado(MathTex(r"x^* = \sqrt{2}", color=ESTILO["exito"]))
 
 ---
 
-*Extraído de: `Plantillas/Investigacion de operaciones/Simplex.py`, `Plantillas/Álgebra y geometría/*`, `Plantillas/Análisis numérico/*`, `Plantillas/Cálculo diferencial/*`, `Plantillas/Ecuaciones diferenciales/*` y `Planos/generar_plano.py`.*
+## 11. Extensión a la interfaz
+
+La misma jerarquía se aplica al editor web: superficies planas, una sola idea
+por panel y color usado solo como señal.
+
+| Elemento de UI | Regla |
+|---|---|
+| Fondo de app | `#0a0c0f`, sin gradientes ambientales ni resplandor |
+| Paneles | `#111419`, borde `#252b34`, radio `10 px`, sin sombra |
+| Texto principal | `#e7e9ec`; texto secundario `#8b939e` |
+| Acento | Heredado del tema Manim activo (`--color-primary`) |
+| Confirmación / error | `#8fd6a8` / `#e8a0a0`, siempre acompañados de texto |
+| Tipografía de títulos | STIX Two Text, peso 500 |
+| Tipografía de interfaz | IBM Plex Sans, 13–14 px, sentence case |
+| Tipografía de código | JetBrains Mono, 11–12 px |
+| Fórmulas vivas | KaTeX en cuanto se escribe; error en rojo, nunca silencioso |
+| Iconos | SVG de trazo 1.5, 16–18 px, sin emoji decorativos |
+| Editor de código | CodeMirror con línea activa, paréntesis pareados y Ctrl+S |
+| Movimiento | transiciones ≤ 200 ms y respeto a `prefers-reduced-motion` |
+
+Reglas adicionales:
+
+- Proporción del preview: el marco adopta el `aspect-ratio` del formato activo.
+- El asistente nunca aplica cambios por sorpresa: primero muestra resumen y
+  diff; después el usuario elige **Aplicar**, **Descartar** o **Deshacer**.
+- Un conflicto de revisión no se resuelve calladamente: se pide una nueva
+  propuesta.
+- Si un CDN falla, la interfaz degrada a textarea y texto plano sin perder la
+  funcionalidad esencial.
+
+---
+
+*Extraído de: `src/manim_studio/motor/plantillas/investigacion_operaciones/Simplex.py`, `src/manim_studio/motor/plantillas/algebra_geometria/*`, `src/manim_studio/motor/plantillas/analisis_numerico/*`, `src/manim_studio/motor/plantillas/calculo_diferencial/*`, `src/manim_studio/motor/plantillas/ecuaciones_diferenciales/*` y `src/manim_studio/motor/planos/generar_plano.py`.*
