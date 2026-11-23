@@ -122,7 +122,9 @@
   function syncActiveFile(path) {
     if (typeof state !== 'undefined') {
       state.activeFile = basename(path);
-      if (typeof updateActiveFileUI === 'function') updateActiveFileUI(state.activeFile);
+      if (typeof updateActiveFileUI === 'function') {
+        updateActiveFileUI(state.activeFile, path, activeProject);
+      }
     }
   }
 
@@ -229,19 +231,40 @@
     }
   }
 
+  function toggleProjectList(force) {
+    if (!dom.projectList || !dom.toggleProjects) return;
+    const shouldOpen = typeof force === 'boolean' ? force : dom.projectList.classList.contains('hidden');
+    dom.projectList.classList.toggle('hidden', !shouldOpen);
+    dom.toggleProjects.setAttribute('aria-expanded', shouldOpen ? 'true' : 'false');
+  }
+
   function renderProjects() {
-    if (!dom.projectCarousel) return;
-    dom.projectCarousel.replaceChildren();
+    const active = projects.find((project) => project.slug === activeProject);
+    if (dom.activeProjectName) {
+      dom.activeProjectName.textContent = active ? active.title : activeProject || 'Sin proyecto';
+    }
+    if (!dom.projectList) return;
+    dom.projectList.replaceChildren();
     if (!projects.length) {
-      dom.projectCarousel.appendChild(make('span', 'rail-hint', 'Sin proyectos'));
+      dom.projectList.appendChild(make('span', 'rail-hint', 'Sin proyectos'));
       return;
     }
     projects.forEach((project) => {
-      const chip = make('button', `project-chip${project.slug === activeProject ? ' active' : ''}`, project.title);
-      chip.type = 'button';
-      chip.title = `${project.title} · ${project.slug}`;
-      chip.addEventListener('click', () => selectProject(project.slug));
-      dom.projectCarousel.appendChild(chip);
+      const item = make(
+        'button',
+        `project-item${project.slug === activeProject ? ' active' : ''}`,
+        ''
+      );
+      item.type = 'button';
+      item.title = `${project.title} · ${project.slug}`;
+      item.appendChild(make('span', 'project-item-title', project.title));
+      item.appendChild(make('span', 'project-item-slug', project.slug));
+      if (project.slug === activeProject) item.appendChild(make('span', 'project-item-check', '✓'));
+      item.addEventListener('click', () => {
+        toggleProjectList(false);
+        selectProject(project.slug);
+      });
+      dom.projectList.appendChild(item);
     });
   }
 
@@ -693,6 +716,9 @@
   // INICIALIZACIÓN
   // ------------------------------------------------------------------------
   function bind() {
+    if (dom.toggleProjects) {
+      dom.toggleProjects.addEventListener('click', () => toggleProjectList());
+    }
     if (dom.newProject) dom.newProject.addEventListener('click', createProject);
     if (dom.deleteProject) dom.deleteProject.addEventListener('click', deleteProject);
     if (dom.unlockTemplates) {
@@ -747,7 +773,9 @@
 
   async function init() {
     dom = {
-      projectCarousel: $('project-carousel'),
+      toggleProjects: $('btn-toggle-projects'),
+      activeProjectName: $('active-project-name'),
+      projectList: $('project-list'),
       newProject: $('btn-new-project'),
       deleteProject: $('btn-delete-project'),
       unlockTemplates: $('check-unlock-system-templates'),

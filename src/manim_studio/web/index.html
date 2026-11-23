@@ -147,21 +147,26 @@
     <div id="view-studio" class="app-view active">
       <div class="studio-workspace">
 
-        <!-- Barra lateral única: proyectos, archivos del proyecto y plantillas -->
+        <!-- Barra lateral: proyectos desplegables, archivos, plantillas y agente -->
         <aside id="studio-sidebar" class="studio-sidebar card glass-card">
           <div class="sidebar-projects">
             <div class="sidebar-projects-head">
-              <span data-icon="grid" data-size="15"></span>
-              <h2>Proyectos</h2>
+              <button type="button" id="btn-toggle-projects" class="sidebar-projects-toggle" aria-expanded="false" title="Desplegar lista de proyectos">
+                <span data-icon="grid" data-size="15"></span>
+                <h2>Proyectos</h2>
+                <span id="active-project-name" class="active-project-name">Sin proyecto</span>
+                <span class="projects-chevron" aria-hidden="true">▸</span>
+              </button>
               <button type="button" id="btn-new-project" class="btn-icon" title="Crear proyecto"><span data-icon="plus" data-size="14"></span></button>
               <button type="button" id="btn-delete-project" class="btn-icon danger" title="Eliminar proyecto activo"><span data-icon="trash" data-size="14"></span></button>
             </div>
-            <div id="project-carousel" class="project-carousel" aria-label="Proyectos"></div>
+            <div id="project-list" class="project-list hidden"></div>
           </div>
 
           <div class="sidebar-tabs" role="tablist" aria-label="Contenido de la barra lateral">
             <button type="button" data-sidebar-tab="files" class="active" aria-selected="true">Archivos</button>
             <button type="button" data-sidebar-tab="templates" aria-selected="false">Plantillas</button>
+            <button type="button" data-sidebar-tab="agent" aria-selected="false">Agente</button>
           </div>
 
           <div class="sidebar-pane active" data-sidebar-pane="files">
@@ -186,46 +191,8 @@
             </form>
             <p class="rail-hint">★ Marca tus favoritas. El botón «+» guarda el código abierto como plantilla.</p>
           </div>
-        </aside>
 
-        <!-- Escenario: panel unificado y salida visual -->
-        <div class="studio-center">
-          <div class="studio-stage">
-            <section class="card glass-card studio-panel">
-              <div class="panel-tabs" role="tablist" aria-label="Herramientas del estudio">
-                <button type="button" data-panel-tab="editor" class="active" aria-selected="true"><span data-icon="code" data-size="14"></span> Editor</button>
-                <button type="button" data-panel-tab="agent" aria-selected="false"><span data-icon="sparkle" data-size="14"></span> Agente</button>
-                <button type="button" data-panel-tab="audio" aria-selected="false"><span data-icon="audio" data-size="14"></span> Audio</button>
-              </div>
-
-              <div class="panel-pane active" data-panel-pane="editor">
-                <div class="editor-header">
-                  <div class="file-tab">
-                    <span class="file-icon">&lt;/&gt;</span>
-                    <span class="file-name" id="editor-file-name">main.py</span>
-                    <span id="unsaved-badge" class="unsaved-dot hidden" title="Cambios no guardados">●</span>
-                  </div>
-                  <div class="editor-run-actions">
-                    <button id="btn-run" class="btn btn-primary btn-sm pulse-btn" title="Guardar y ejecutar el archivo abierto (Ctrl+Enter)">
-                      <span data-icon="play" data-size="14"></span>
-                      <span id="btn-run-text">Ejecutar archivo</span>
-                    </button>
-                    <button id="btn-stop" class="btn btn-secondary btn-sm" title="Detener el render en curso" disabled>
-                      <span data-icon="stop" data-size="14"></span>
-                    </button>
-                  </div>
-                </div>
-                <div class="editor-meta">
-                  <span id="editor-cursor-pos">Línea 1, Col 1</span>
-                  <span class="shortcut-hint">Ctrl+S Guardar &bull; Ctrl+Enter Ejecutar</span>
-                </div>
-                <div class="editor-wrapper">
-                  <div id="line-numbers" class="line-numbers code-font">1</div>
-                  <textarea id="code-editor" class="code-editor code-font" spellcheck="false" placeholder="# Cargando main.py..."></textarea>
-                </div>
-              </div>
-
-              <div class="panel-pane" data-panel-pane="agent">
+          <div class="sidebar-pane" data-sidebar-pane="agent">
         <!-- Chat: el asistente propone cambios de código; el usuario revisa y aplica -->
         <section class="card glass-card studio-chat-card">
           <div class="card-header chat-header">
@@ -261,11 +228,155 @@
             <button type="submit" class="btn btn-primary btn-sm">Enviar</button>
           </form>
         </section>
+          </div>
+        </aside>
 
+        <!-- Columna central: editor de código a ancho completo -->
+        <div class="studio-center">
+          <section class="card glass-card studio-panel">
+              <div class="editor-header">
+                  <div class="file-tab">
+                    <span class="file-icon">&lt;/&gt;</span>
+                    <div class="file-tab-text">
+                      <div class="file-tab-title">
+                        <span class="file-name" id="editor-file-name">main.py</span>
+                        <span id="unsaved-badge" class="unsaved-dot hidden" title="Cambios no guardados">●</span>
+                        <span class="buffer-badge" title="Se ejecuta el código de este editor, guardado o no">Buffer del editor</span>
+                      </div>
+                      <div class="file-tab-meta">
+                        <span id="editor-project-name">Sin proyecto</span>
+                        <span class="meta-sep">&bull;</span>
+                        <span id="editor-path">escenas/main.py</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="editor-run-actions">
+                    <button id="btn-run" class="btn btn-primary btn-sm pulse-btn" title="Ejecutar el código del editor en el archivo abierto (Ctrl+Enter)">
+                      <span data-icon="play" data-size="14"></span>
+                      <span id="btn-run-text">Ejecutar archivo</span>
+                    </button>
+                    <button id="btn-stop" class="btn btn-secondary btn-sm" title="Detener el render en curso" disabled>
+                      <span data-icon="stop" data-size="14"></span>
+                    </button>
+                  </div>
+                </div>
+                <div class="editor-meta">
+                  <span id="editor-cursor-pos">Línea 1, Col 1</span>
+                  <span class="shortcut-hint">Ctrl+S Guardar &bull; Ctrl+Enter Ejecutar</span>
+                </div>
+                <div class="editor-wrapper">
+                  <div id="line-numbers" class="line-numbers code-font">1</div>
+                  <textarea id="code-editor" class="code-editor code-font" spellcheck="false" placeholder="# Cargando main.py..."></textarea>
+                </div>
+          </section>
+        </div>
 
+        <!-- Columna derecha: video y franja inferior Terminal | Audio -->
+        <div class="studio-right">
+        <!-- Columna Derecha: Salida Visual (Video MP4) -->
+        <section class="card glass-card preview-screen-card">
+          <div class="card-header">
+            <div class="card-title-group">
+              <span class="step-badge" data-icon="video"></span>
+              <div>
+                <h2 class="card-title">Salida Visual</h2>
+                <p class="card-desc">Renderizado de <code>EscenaAutomatica.mp4</code></p>
               </div>
+            </div>
+            <div class="video-meta-badge" id="video-meta">Sin video activo</div>
+          </div>
 
-              <div class="panel-pane" data-panel-pane="audio">
+          <div class="video-container">
+            <video id="manim-video-player" controls preload="metadata">
+              <source id="video-source" src="" type="video/mp4">
+              Tu navegador no soporta el formato de video MP4.
+            </video>
+
+            <!-- Overlay de Renderizado Activo -->
+            <div id="render-overlay" class="render-overlay hidden">
+              <div class="spinner-ring"></div>
+              <h3 class="overlay-title" id="overlay-status-title">Ejecutando main.py...</h3>
+              <p class="overlay-desc" id="overlay-status-desc">Compilando ecuaciones LaTeX y generando fotogramas</p>
+              <div class="progress-bar-wrap">
+                <div class="progress-bar-fill"></div>
+              </div>
+            </div>
+
+            <!-- Placeholder cuando no hay video -->
+            <div id="video-placeholder" class="video-placeholder">
+              <div class="placeholder-icon">
+                <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5">
+                  <rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"></rect>
+                  <line x1="7" y1="2" x2="7" y2="22"></line>
+                  <line x1="17" y1="2" x2="17" y2="22"></line>
+                  <line x1="2" y1="12" x2="22" y2="12"></line>
+                  <line x1="2" y1="7" x2="7" y2="7"></line>
+                  <line x1="2" y1="17" x2="7" y2="17"></line>
+                  <line x1="17" y1="17" x2="22" y2="17"></line>
+                  <line x1="17" y1="7" x2="22" y2="7"></line>
+                </svg>
+              </div>
+              <h3>Ningún video generado aún</h3>
+              <p>Edita el archivo abierto y presiona <strong>«Ejecutar archivo»</strong> para ver la animación aquí.</p>
+            </div>
+          </div>
+
+          <div class="video-footer">
+            <a id="btn-download-video" class="btn btn-secondary btn-sm disabled" download="EscenaAutomatica.mp4" href="#">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7 10 12 15 17 10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
+              </svg>
+              Descargar Video MP4
+            </a>
+            <button id="btn-restart-video" class="btn btn-secondary btn-sm" disabled>
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+                <path d="M3 3v5h5"></path>
+              </svg>
+              Reiniciar
+            </button>
+          </div>
+        </section>
+
+          <section class="card glass-card studio-bottom-card">
+            <div class="bottom-tabs" role="tablist" aria-label="Herramientas inferiores">
+              <button type="button" data-bottom-tab="terminal" class="active" aria-selected="true"><span data-icon="code" data-size="14"></span> Terminal</button>
+              <button type="button" data-bottom-tab="audio" aria-selected="false"><span data-icon="audio" data-size="14"></span> Audio</button>
+            </div>
+            <div class="bottom-pane active" data-bottom-pane="terminal">
+        <!-- Columna Izquierda: Consola del Engine (Stdout / Stderr) -->
+        <section class="card glass-card bottom-console-card">
+          <div class="card-header terminal-header">
+            <div class="terminal-controls">
+              <span class="term-dot red"></span>
+              <span class="term-dot yellow"></span>
+              <span class="term-dot green"></span>
+              <span class="term-title">Consola del Engine</span>
+              <span id="terminal-script-label" class="term-script-label" title="Script resuelto para la ejecución">escenas/main.py &bull; buffer del editor</span>
+            </div>
+            <div class="terminal-tools">
+              <button id="btn-clear-console" class="btn-term-tool" title="Limpiar registros"><span data-icon="x" data-size="13"></span></button>
+              <button id="btn-copy-console" class="btn-term-tool" title="Copiar registros"><span data-icon="copy" data-size="13"></span></button>
+            </div>
+          </div>
+
+          <div id="save-status-strip" class="save-status-strip" data-state="saved">
+            <span class="save-indicator"></span>
+            <span id="save-status-text">Cambios guardados</span>
+            <span id="save-status-file" class="save-file-label">main.py</span>
+            <button type="button" id="btn-save-now" class="btn btn-secondary btn-xs">Guardar (Ctrl+S)</button>
+          </div>
+
+          <div id="terminal-screen" class="terminal-screen code-font">
+            <div class="term-line term-system">
+              <span class="term-timestamp">[00:00:00]</span> Manim Studio Engine conectado. Listo para compilar el archivo abierto.
+            </div>
+          </div>
+        </section>
+            </div>
+            <div class="bottom-pane" data-bottom-pane="audio">
         <!-- Columna Derecha: Módulo de Audio Sincronizado (Debajo de la Salida Visual) -->
         <section class="card glass-card bottom-audio-card" id="audio-module-card">
           <div class="card-header audio-header">
@@ -407,114 +518,10 @@
             </div>
           </div>
         </section>
-
-
-              </div>
-            </section>
-
-        <!-- Columna Derecha: Salida Visual (Video MP4) -->
-        <section class="card glass-card preview-screen-card">
-          <div class="card-header">
-            <div class="card-title-group">
-              <span class="step-badge" data-icon="video"></span>
-              <div>
-                <h2 class="card-title">Salida Visual</h2>
-                <p class="card-desc">Renderizado de <code>EscenaAutomatica.mp4</code></p>
-              </div>
             </div>
-            <div class="video-meta-badge" id="video-meta">Sin video activo</div>
-          </div>
-
-          <div class="video-container">
-            <video id="manim-video-player" controls preload="metadata">
-              <source id="video-source" src="" type="video/mp4">
-              Tu navegador no soporta el formato de video MP4.
-            </video>
-
-            <!-- Overlay de Renderizado Activo -->
-            <div id="render-overlay" class="render-overlay hidden">
-              <div class="spinner-ring"></div>
-              <h3 class="overlay-title" id="overlay-status-title">Ejecutando main.py...</h3>
-              <p class="overlay-desc" id="overlay-status-desc">Compilando ecuaciones LaTeX y generando fotogramas</p>
-              <div class="progress-bar-wrap">
-                <div class="progress-bar-fill"></div>
-              </div>
-            </div>
-
-            <!-- Placeholder cuando no hay video -->
-            <div id="video-placeholder" class="video-placeholder">
-              <div class="placeholder-icon">
-                <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5">
-                  <rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"></rect>
-                  <line x1="7" y1="2" x2="7" y2="22"></line>
-                  <line x1="17" y1="2" x2="17" y2="22"></line>
-                  <line x1="2" y1="12" x2="22" y2="12"></line>
-                  <line x1="2" y1="7" x2="7" y2="7"></line>
-                  <line x1="2" y1="17" x2="7" y2="17"></line>
-                  <line x1="17" y1="17" x2="22" y2="17"></line>
-                  <line x1="17" y1="7" x2="22" y2="7"></line>
-                </svg>
-              </div>
-              <h3>Ningún video generado aún</h3>
-              <p>Edita el archivo abierto y presiona <strong>«Ejecutar archivo»</strong> para ver la animación aquí.</p>
-            </div>
-          </div>
-
-          <div class="video-footer">
-            <a id="btn-download-video" class="btn btn-secondary btn-sm disabled" download="EscenaAutomatica.mp4" href="#">
-              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                <polyline points="7 10 12 15 17 10"></polyline>
-                <line x1="12" y1="15" x2="12" y2="3"></line>
-              </svg>
-              Descargar Video MP4
-            </a>
-            <button id="btn-restart-video" class="btn btn-secondary btn-sm" disabled>
-              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
-                <path d="M3 3v5h5"></path>
-              </svg>
-              Reiniciar
-            </button>
-          </div>
-        </section>
-
-          </div>
+          </section>
         </div>
       </div>
-
-      <!-- Consola fija inferior -->
-      <footer class="studio-terminal card glass-card">
-        <!-- Columna Izquierda: Consola del Engine (Stdout / Stderr) -->
-        <section class="card glass-card bottom-console-card">
-          <div class="card-header terminal-header">
-            <div class="terminal-controls">
-              <span class="term-dot red"></span>
-              <span class="term-dot yellow"></span>
-              <span class="term-dot green"></span>
-              <span class="term-title">Consola del Engine (Stdout / Stderr)</span>
-            </div>
-            <div class="terminal-tools">
-              <button id="btn-clear-console" class="btn-term-tool" title="Limpiar registros"><span data-icon="x" data-size="13"></span></button>
-              <button id="btn-copy-console" class="btn-term-tool" title="Copiar registros"><span data-icon="copy" data-size="13"></span></button>
-            </div>
-          </div>
-
-          <div id="save-status-strip" class="save-status-strip" data-state="saved">
-            <span class="save-indicator"></span>
-            <span id="save-status-text">Cambios guardados</span>
-            <span id="save-status-file" class="save-file-label">main.py</span>
-            <button type="button" id="btn-save-now" class="btn btn-secondary btn-xs">Guardar (Ctrl+S)</button>
-          </div>
-
-          <div id="terminal-screen" class="terminal-screen code-font">
-            <div class="term-line term-system">
-              <span class="term-timestamp">[00:00:00]</span> Manim Studio Engine conectado. Listo para compilar el archivo abierto.
-            </div>
-          </div>
-        </section>
-
-      </footer>
     </div>
 
     <!-- ======================================================================

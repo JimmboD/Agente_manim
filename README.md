@@ -13,25 +13,26 @@ actualiza mientras se trabaja.
 
 ## Características
 
-- **Modo Estudio**: pestañas **Editor**, **Agente** y **Audio** en una sola
-  ventana, consola como franja fija abajo y vista previa a la derecha.
+- **Modo Estudio**: editor a ancho completo, agente en la sidebar izquierda y
+  franja inferior **Terminal | Audio** debajo del video.
 - **Proyectos físicos**: `var/proyectos/<slug>/escenas/` para cada proyecto; se
   crean desde un título, se seleccionan y se borran desde la barra lateral.
 - **Flujo híbrido**: edición manual del `.py` o propuesta del asistente, siempre
   con revisión → aplicación. Nada se guarda sin confirmación.
 - **Control de cambios**: si el archivo cambia en disco mientras lo editas, la
   escritura se rechaza con `409` en lugar de sobrescribir tu trabajo.
-- **Sidebar unificada**: carrusel de proyectos, pestañas **Archivos** y
-  **Plantillas**, y acciones como iconos estilo VS Code (nuevo archivo, nueva
-  carpeta, mover/renombrar, borrar, subir audio y actualizar).
+- **Sidebar unificada**: lista desplegable de proyectos, pestañas **Archivos**,
+  **Plantillas** y **Agente**, y acciones como iconos estilo VS Code (nuevo
+  archivo, nueva carpeta, mover/renombrar, borrar, subir audio y actualizar).
 - **Plantillas separadas**: las del usuario son globales (`var/plantillas/`) y
   se crean desde la pestaña **Plantillas**; las del sistema son de solo lectura
   salvo que se active el ajuste correspondiente.
 - **Ajustes completos**: color libre con presets, calidad `480p`/`720p`/`1080p`,
   formato `16:9`/`9:16`/`1:1` y opción «Desbloquear edición de las plantillas
   originales».
-- **Render aislado**: cada previsualización corre en un subproceso con su propio
-  `MANIM_MEDIA_DIR`, con logs en vivo por SSE y cancelación explícita.
+- **Render aislado**: cada previsualización corre en un subproceso, escribe el
+  MP4 en `var/media/videos/` y se muestra al terminar; los logs llegan por SSE y
+  la ejecución se puede cancelar.
 - **Tres formatos**: `16:9`, `9:16` y `1:1`, con layouts y encuadre adaptados.
 - **Audio**: sube una grabación, ajusta el offset manualmente y exporta el video
   con la voz integrada.
@@ -95,13 +96,14 @@ También puedes ejecutar `manim-studio` si el entorno está activado.
 
 Controles de la sesión:
 
-- **Ejecutar archivo** (sobre el editor) guarda y lanza el `.py` abierto con
-  Manim, usando la calidad y el formato de *Ajustes*.
+- **Ejecutar archivo** (sobre el editor) escribe el código actual del buffer en
+  el `.py` abierto y lo lanza con Manim, usando la calidad y el formato de
+  *Ajustes*.
 - **Detener** (junto a *Ejecutar*) cancela el render en curso sin apagar el servidor.
 - **Apagar servidor** (panel lateral → *Sesión del servidor*) pide confirmación
   y termina el proceso local de forma controlada.
-- `Ctrl+S` guarda el archivo activo aunque el foco esté en otro panel; la franja
-  sobre la terminal indica si hay cambios guardados o sin guardar.
+- `Ctrl+S` guarda el archivo activo aunque el foco esté en otro panel; la pestaña
+  **Terminal** indica si hay cambios guardados o sin guardar.
 
 ## Estructura
 

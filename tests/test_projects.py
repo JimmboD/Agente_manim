@@ -1,3 +1,4 @@
+import os
 import tempfile
 import unittest
 from pathlib import Path
@@ -89,6 +90,50 @@ class ProjectTests(unittest.TestCase):
                     servidor.resolve_run_target({"path": "escenas/notas.txt", "project": slug})
                 with self.assertRaises(WorkspaceError):
                     servidor.resolve_run_target({"path": "escenas/../servidor.py", "project": slug})
+        finally:
+            workspace.ROOTS.clear()
+            workspace.ROOTS.update(original_roots)
+            servidor.projects.active_slug = original_active
+
+    def test_find_latest_video_can_ignore_previous_renders(self):
+        media = self.base / "media"
+        videos = media / "videos"
+        videos.mkdir(parents=True)
+        old = videos / "old.mp4"
+        new = videos / "new.mp4"
+        old.write_bytes(b"old")
+        new.write_bytes(b"new")
+        os.utime(old, (100, 100))
+        os.utime(new, (200, 200))
+
+        with mock.patch.object(servidor, "MEDIA_DIR", str(media)):
+            self.assertEqual(Path(servidor.find_latest_video_file()).name, "new.mp4")
+            self.assertEqual(Path(servidor.find_latest_video_file(since=150)).name, "new.mp4")
+            self.assertIsNone(servidor.find_latest_video_file(since=300))
+            self.assertTrue(servidor.find_latest_video(since=150).startswith("/media/videos/new.mp4?t=200"))
+
+    def test_run_target_writes_editor_buffer_to_the_open_file(self):
+        slug = "proyecto"
+        scenes = self.projects_dir / slug / "escenas"
+        scenes.mkdir(parents=True)
+        (scenes / "a.py").write_text("print('A')\n", encoding="utf-8")
+        main = scenes / "main.py"
+        main.write_text("print('MAIN')\n", encoding="utf-8")
+
+        original_roots = dict(workspace.ROOTS)
+        original_active = servidor.projects.active_slug
+        try:
+            workspace.ROOTS["escenas"] = (scenes, True)
+            with mock.patch.object(servidor.projects, "active_slug", return_value=slug):
+                target = servidor.resolve_run_target({
+                    "path": "escenas/a.py",
+                    "project": slug,
+                    "code": "print('BUFFER')\n",
+                })
+            self.assertEqual(target["path"], "escenas/a.py")
+            self.assertEqual(len(target["sha256"]), 64)
+            self.assertEqual((scenes / "a.py").read_text(encoding="utf-8"), "print('BUFFER')\n")
+            self.assertEqual(main.read_text(encoding="utf-8"), "print('MAIN')\n")
         finally:
             workspace.ROOTS.clear()
             workspace.ROOTS.update(original_roots)

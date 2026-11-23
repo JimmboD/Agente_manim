@@ -7,6 +7,7 @@ if hasattr(sys.stderr, "reconfigure"):
     sys.stderr.reconfigure(encoding="utf-8")
 
 import json
+import hashlib
 import time
 import glob
 import subprocess
@@ -128,11 +129,19 @@ def resolve_run_target(payload: dict, query: dict | None = None) -> dict:
             raise workspace.WorkspaceError(
                 400, "Solo se pueden ejecutar archivos .py de la carpeta Proyecto."
             )
+        # El buffer del editor manda: se escribe en la ruta validada justo antes
+        # de lanzar el proceso para ejecutar siempre el código que ve el usuario.
+        code = payload.get("code")
+        if isinstance(code, str):
+            candidate.write_bytes(code.encode("utf-8"))
+        data = candidate.read_bytes()
         return {
             "slug": slug,
             "path": rel_path,
             "file": candidate.name,
             "script": str(candidate),
+            "sha256": hashlib.sha256(data).hexdigest(),
+            "size": len(data),
             "format": format_id,
             "quality": quality,
         }
@@ -183,7 +192,7 @@ def broadcast_sse(event_type, data):
             if d in sse_subscribers:
                 sse_subscribers.remove(d)
 
-def find_latest_video():
+def find_latest_video(since=None):
     """Devuelve la URL HTTP del video .mp4 generado más reciente.
 
     Los archivos viven en ``var/media/`` pero se sirven bajo ``/media/``;
@@ -191,16 +200,20 @@ def find_latest_video():
     que el servidor no publica.
     """
 
-    newest = find_latest_video_file()
+    newest = find_latest_video_file(since=since)
     if newest:
         rel = os.path.relpath(newest, MEDIA_DIR).replace("\\", "/")
         return f"/media/{rel}?t={int(os.path.getmtime(newest))}"
     return None
 
-def find_latest_video_file():
-    """Retorna la ruta absoluta del archivo de video .mp4 generado más reciente."""
+def find_latest_video_file(since=None):
+    """Retorna la ruta del .mp4 más reciente, opcionalmente posterior a ``since``."""
     video_candidates = glob.glob(os.path.join(MEDIA_DIR, "videos", "**", "*.mp4"), recursive=True)
-    video_files = [f for f in video_candidates if "partial_movie_files" not in f and "exports" not in f]
+    video_files = [
+        f for f in video_candidates
+        if "partial_movie_files" not in f and "exports" not in f
+        and (since is None or os.path.getmtime(f) >= since)
+    ]
     if video_files:
         return max(video_files, key=os.path.getmtime)
     return None
@@ -995,6 +1008,8 @@ class ManimStudioHandler(BaseHTTPRequestHandler):
                 "path": target["path"],
                 "project": target["slug"],
                 "script": target["script"],
+                "sha256": target.get("sha256"),
+                "size": target.get("size"),
             }).encode("utf-8"))
             return
 
@@ -1163,6 +1178,9 @@ def run_main_task(quality="low_quality", script_path=None, format_id="16:9"):
     env["MANIM_STUDIO_HEADLESS"] = "1"  # Evita abrir reproductores nativos bloqueantes
     env["MANIM_QUALITY"] = quality
     env["MANIM_FORMAT"] = str(format_id)
+    # La clase `AnimadorGrafico` lee esta variable: sin ella el MP4 cae en
+    # src/manim_studio/motor/media y `find_latest_video()` nunca lo encuentra.
+    env["MANIM_MEDIA_DIR"] = MEDIA_DIR
 
     start_time = time.time()
     proc = None
@@ -1206,13 +1224,23 @@ def run_main_task(quality="low_quality", script_path=None, format_id="16:9"):
                 "message": "Ejecución detenida por el usuario.",
             })
         elif proc.returncode == 0:
-            latest_vid = find_latest_video()
+            # Sólo se considera éxito si el video se generó en esta ejecución;
+            # así un render anterior no simula que se ejecutó el archivo viejo.
+            latest_vid = find_latest_video(since=start_time - 1)
             if latest_vid:
                 broadcast_sse("log", {"level": "success", "text": f"✓ Ejecución exitosa de {script_name} ({duration}s)"})
                 broadcast_sse("status", {
                     "state": "success",
                     "message": f"Renderizado exitoso ({duration}s)",
                     "video_url": latest_vid
+                })
+                broadcast_sse("video", {"video_url": latest_vid})
+            elif find_latest_video():
+                broadcast_sse("log", {"level": "warning", "text": "Proceso finalizado, pero el video más reciente es anterior a esta ejecución."})
+                broadcast_sse("log", {"level": "success", "text": f"✓ Proceso de {script_name} finalizado ({duration}s)"})
+                broadcast_sse("status", {
+                    "state": "success",
+                    "message": "Proceso finalizado sin video nuevo",
                 })
             else:
                 broadcast_sse("log", {"level": "warning", "text": "Proceso finalizado, pero no se localizó archivo de video MP4."})

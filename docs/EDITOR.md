@@ -46,20 +46,24 @@ Para usar un modelo real, copia `.env.example` a `.env` y rellena la clave. Sin
 
 ### Interfaz
 
-- **Sidebar izquierda**: carrusel de proyectos (crear desde un título,
-  seleccionar y borrar), pestañas **Archivos** y **Plantillas**, y botones como
-  iconos estilo VS Code: nuevo archivo, nueva carpeta, mover/renombrar, borrar,
-  subir audio y actualizar.
+- **Sidebar izquierda**: encabezado **Proyectos** desplegable con la lista de
+  proyectos (crear desde un título, seleccionar y borrar), pestañas **Archivos**,
+  **Plantillas** y **Agente**, y botones como iconos estilo VS Code: nuevo
+  archivo, nueva carpeta, mover/renombrar, borrar, subir audio y actualizar.
 - **Árbol «Proyecto»**: archivos del proyecto activo. El usuario los añade y
   quita desde la sidebar; son documentos del proyecto, no plantillas.
-- **Panel de herramientas**: una sola ventana con pestañas **Editor**,
-  **Agente** y **Audio**.
-- **Consola**: franja fija abajo con los logs SSE; la franja superior indica si
-  hay cambios guardados o sin guardar y permite forzar el guardado.
-- **Vista previa**: columna de la derecha; reproduce el MP4 generado y ofrece
-  descarga, reinicio y exportación con audio.
-- **Editor + Ejecutar/Detener**: *Ejecutar* guarda antes de lanzar el `.py`
-  abierto con la calidad y el formato activos.
+- **Agente**: sección de la sidebar con el chat; el asistente propone cambios
+  sobre el archivo abierto y el usuario aplica o descarta la propuesta.
+- **Editor**: columna central a ancho completo; la franja superior concentra
+  *Ejecutar* y *Detener* e indica el proyecto, la ruta y que se ejecuta el buffer
+  del editor. El área de código nunca baja de la altura del contenedor.
+- **Consola y audio**: franja inferior de la columna derecha con pestañas
+  **Terminal** y **Audio**. La consola muestra los logs SSE y el estado de
+  guardado.
+- **Vista previa**: columna de la derecha, sobre la franja Terminal/Audio;
+  reproduce el MP4 generado y ofrece descarga, reinicio y exportación con audio.
+- **Editor + Ejecutar/Detener**: *Ejecutar* escribe el buffer actual en el `.py`
+  abierto y lo lanza con la calidad y el formato activos.
 - **Chat de código**: el asistente devuelve una propuesta con diff; **Aplicar**
   la escribe en disco y **Descartar** la descarta. Nada se guarda sin revisión.
 - **Ajustes**: color libre con presets, calidad (`480p`, `720p`, `1080p`),
@@ -82,9 +86,14 @@ Para usar un modelo real, copia `.env.example` a `.env` y rellena la clave. Sin
    Solo se ejecuta cuando el usuario pulsa **Aplicar**.
 5. `POST /api/run_main` toma como fuente de verdad la ruta `path` del archivo
    abierto. Debe ser un `.py` existente dentro de la carpeta **Proyecto** del
-   proyecto activo; si no, responde `400` sin caer a `main.py`. La terminal
-   muestra la ruta resuelta. Las llamadas heredadas que no envían `path` (Short)
-   conservan su comportamiento con `code`/`file`.
+   proyecto activo; si no, responde `400` sin caer a `main.py`. El campo `code`
+   se escribe en esa ruta justo antes de lanzar el proceso, de modo que se
+   ejecuta el buffer del editor aunque no se haya pulsado `Ctrl+S`. La terminal
+   muestra la ruta resuelta y sólo informa «renderizado exitoso» si aparece un
+   MP4 nuevo. El subproceso recibe `MANIM_MEDIA_DIR=var/media`, por lo que el
+   video se publica bajo `/media/` y se notifica con el evento SSE `video`.
+   Las llamadas heredadas que no envían `path` (Short) conservan su
+   comportamiento con `code`/`file`.
 6. `GET /api/workspace/templates` lista las plantillas. `POST
    /api/workspace/templates` crea una con el código abierto en
    `var/plantillas/`; la estrella es una preferencia local del navegador. Las
@@ -157,8 +166,8 @@ El sistema visual «Pizarra Analítica» se reparte en:
 
 - `src/manim_studio/web/tokens.css`: tipografías, espaciado y colores.
 - `src/manim_studio/web/components.css`: botones, campos y paneles.
-- `src/manim_studio/web/index.css`: layout del Estudio (sidebar, panel de
-  pestañas, consola fija y vista previa) y responsive.
+- `src/manim_studio/web/index.css`: layout del Estudio (sidebar con agente,
+  editor central, video y franja Terminal/Audio) y responsive.
 - `src/manim_studio/web/icons.js`: iconos SVG de línea, sin librerías externas.
 - `src/manim_studio/web/app.js`: estado global, navegación, ajustes, ejecución y
   documentación integrada.

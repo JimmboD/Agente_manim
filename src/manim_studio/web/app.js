@@ -280,13 +280,18 @@ function switchView(viewId) {
     onEnterShortView();
   }
 
+  // El editor siempre está visible en el estudio: recalcula su altura al volver.
+  if (viewId === 'view-studio' && mainCodeMirror && typeof mainCodeMirror.refresh === 'function') {
+    window.setTimeout(() => mainCodeMirror.refresh(), 0);
+  }
+
   // La documentación del sistema vive dentro de Ajustes.
   if (viewId === 'view-settings' && !state.docsLoaded) {
     loadDocs();
   }
 }
 
-/** Intercambia los paneles Editor / Agente / Audio y los de la barra lateral. */
+/** Intercambia las pestañas de la barra lateral y de la franja inferior. */
 function initWorkspaceTabs() {
   const bindTabs = (selector, paneSelector, attribute) => {
     const buttons = document.querySelectorAll(`[${selector}]`);
@@ -302,6 +307,10 @@ function initWorkspaceTabs() {
         document.querySelectorAll(`[${paneSelector}]`).forEach((pane) => {
           pane.classList.toggle('active', pane.getAttribute(paneSelector) === name);
         });
+        if (name === 'terminal') {
+          const terminal = document.getElementById('terminal-screen');
+          if (terminal) terminal.scrollTop = terminal.scrollHeight;
+        }
         if (window.Studio && typeof window.Studio.onPaneVisible === 'function') {
           window.Studio.onPaneVisible(name);
         }
@@ -309,8 +318,8 @@ function initWorkspaceTabs() {
     });
   };
 
-  bindTabs('data-panel-tab', 'data-panel-pane', 'data-panel-tab');
   bindTabs('data-sidebar-tab', 'data-sidebar-pane', 'data-sidebar-tab');
+  bindTabs('data-bottom-tab', 'data-bottom-pane', 'data-bottom-tab');
 }
 
 // ==========================================================================
@@ -477,7 +486,36 @@ function updateLineNumbers() {
   lineNumbers.innerHTML = html;
 }
 
-function updateActiveFileUI(fileName) {
+function updateEditorContext(path, project) {
+  const displayPath = path || state.activeFile || 'escenas/main.py';
+  const projectEl = document.getElementById('editor-project-name');
+  const pathEl = document.getElementById('editor-path');
+  const terminalLabel = document.getElementById('terminal-script-label');
+
+  if (projectEl) projectEl.textContent = project || 'Sin proyecto';
+  if (pathEl) {
+    pathEl.textContent = displayPath;
+    pathEl.title = displayPath;
+  }
+  if (terminalLabel) {
+    terminalLabel.textContent = `${displayPath} · buffer del editor`;
+    terminalLabel.title = `${displayPath} · se ejecuta el código del editor`;
+  }
+}
+
+function updateRunContext(data) {
+  if (!data) return;
+  updateEditorContext(data.path || data.file, data.project);
+  const terminalLabel = document.getElementById('terminal-script-label');
+  if (terminalLabel && data.script) {
+    terminalLabel.textContent = `${data.path || data.file || 'archivo'} · buffer del editor`;
+    terminalLabel.title = data.script;
+  }
+  const pathEl = document.getElementById('editor-path');
+  if (pathEl && data.script) pathEl.title = data.script;
+}
+
+function updateActiveFileUI(fileName, path, project) {
   state.activeFile = fileName;
   const fileNameEl = document.getElementById('editor-file-name');
   if (fileNameEl) fileNameEl.textContent = fileName;
@@ -487,6 +525,7 @@ function updateActiveFileUI(fileName) {
   if (btnRunText) {
     btnRunText.textContent = 'Ejecutar archivo';
   }
+  updateEditorContext(path, project);
 }
 
 async function loadMainPy(targetFile = null) {
@@ -536,19 +575,18 @@ async function handleRunMain(customCode = null) {
   if (state.isRendering) return;
 
   const activeFile = state.activeFile || 'main.py';
-  // La fuente de verdad es el archivo abierto: se guarda antes de ejecutar.
-  if (customCode === null && window.Studio && typeof window.Studio.saveActiveFile === 'function') {
-    try {
-      await window.Studio.saveActiveFile();
-    } catch (err) {
-      appendTerminalLine('error', `No se pudo guardar antes de ejecutar: ${err.message}`);
-      return;
-    }
-  }
+  // El buffer del editor manda: el servidor escribe este código en la ruta
+  // abierta justo antes de ejecutarlo, así no dependemos de un guardado previo.
   const codeToRun = customCode !== null ? customCode : getCode();
 
   appendTerminalLine('info', '==========================================================');
   appendTerminalLine('info', `Iniciando ejecución de ${activeFile} (Calidad: ${state.quality})...`);
+  resetVideoPreview();
+
+  updateRunContext({
+    path: (window.Studio && window.Studio.currentPath && window.Studio.currentPath()) || `escenas/${activeFile}`,
+    project: (window.Studio && window.Studio.currentProject && window.Studio.currentProject()) || undefined,
+  });
 
   try {
     const res = await fetch('/api/run_main', {
@@ -570,14 +608,18 @@ async function handleRunMain(customCode = null) {
     }
 
     const started = await res.json().catch(() => ({}));
+    updateRunContext(started);
     if (started.script) {
       appendTerminalLine('system', `Archivo resuelto para la ejecución: ${started.script}`);
+    }
+    if (started.project) {
+      appendTerminalLine('system', `Proyecto: ${started.project}`);
     }
 
     state.isDirty = false;
     document.getElementById('unsaved-badge').classList.add('hidden');
     if (window.Studio && typeof window.Studio.markSaved === 'function') {
-      window.Studio.markSaved();
+      window.Studio.markSaved(started.sha256);
     }
   } catch (err) {
     appendTerminalLine('error', `Error al ejecutar: ${err.message}`);
@@ -760,6 +802,30 @@ async function fetchLatestVideo() {
   } catch (err) {}
 }
 
+function resetVideoPreview() {
+  const video = document.getElementById('manim-video-player');
+  const source = document.getElementById('video-source');
+  const placeholder = document.getElementById('video-placeholder');
+  const metaBadge = document.getElementById('video-meta');
+  const btnDownload = document.getElementById('btn-download-video');
+  const btnRestart = document.getElementById('btn-restart-video');
+
+  if (source) source.src = '';
+  if (video) {
+    video.pause();
+    video.removeAttribute('src');
+    video.load();
+  }
+  if (placeholder) placeholder.style.display = '';
+  if (metaBadge) metaBadge.textContent = 'Sin video activo';
+  if (btnDownload) {
+    btnDownload.href = '#';
+    btnDownload.classList.add('disabled');
+  }
+  if (btnRestart) btnRestart.disabled = true;
+  state.currentVideoUrl = '';
+}
+
 function loadVideoPlayer(videoUrl) {
   // 1. Reproductor en Animación Manual
   const video = document.getElementById('manim-video-player');
@@ -775,7 +841,7 @@ function loadVideoPlayer(videoUrl) {
   state.currentVideoUrl = videoUrl;
   video.onloadeddata = () => {
     placeholder.style.display = 'none';
-    metaBadge.textContent = `${video.videoWidth}x${video.videoHeight} &bull; ${video.duration.toFixed(1)}s`;
+    metaBadge.textContent = `${video.videoWidth}x${video.videoHeight} · ${video.duration.toFixed(1)}s`;
     btnDownload.href = videoUrl;
     btnDownload.classList.remove('disabled');
     btnRestart.disabled = false;

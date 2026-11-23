@@ -9,13 +9,13 @@ y el proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
-- Modo **Estudio** por defecto: pestañas **Editor**, **Agente** y **Audio** en
-  una sola ventana, consola fija abajo y vista previa a la derecha.
+- Modo **Estudio** por defecto: editor central a ancho completo, agente en la
+  sidebar izquierda y franja **Terminal | Audio** debajo del video.
 - Proyectos físicos en `var/proyectos/<slug>/`, cada uno con su carpeta
   `escenas/`. El proyecto inicial migra byte a byte el contenido heredado de
   `escenas/main.py` y `escenas/pasos_algebraicos.txt`; `var/` está ignorado por
   Git.
-- Carrusel de proyectos en la sidebar izquierda: crear desde un título,
+- Lista desplegable de proyectos en la sidebar izquierda: crear desde un título,
   seleccionar y borrar; los archivos del proyecto se añaden y quitan desde el
   árbol.
 - Acciones del árbol como iconos estilo VS Code: nuevo archivo, nueva carpeta,
@@ -32,7 +32,8 @@ y el proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Indicador de guardado sobre la terminal y control global `Ctrl+S` con
   `sha256` para evitar sobrescrituras concurrentes.
 - `tests/test_projects.py` para proyectos, migración, ajustes y resolución
-  estricta de la ejecución; la suite queda en 69 pruebas.
+  estricta de la ejecución, del buffer del editor y del video reciente; la suite
+  queda en 71 pruebas.
 
 ### Changed
 
@@ -45,7 +46,8 @@ y el proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   lectura por defecto y se separan de los documentos del proyecto.
 - `POST /api/run_main` usa como fuente de verdad la ruta `path` del archivo
   abierto, validada como `.py` dentro de la carpeta Proyecto del proyecto
-  activo. La terminal muestra la ruta resuelta y se conserva la compatibilidad
+  activo. El campo `code` se escribe en esa ruta justo antes de lanzar el
+  proceso, la terminal muestra la ruta resuelta y se conserva la compatibilidad
   con llamadas heredadas que solo envían `code`.
 - Documentación de usuario y técnica actualizada al flujo del Estudio.
 
@@ -64,6 +66,16 @@ y el proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `/api/run_main` responde `400` y el error nombra el motivo.
 - Las rutas de plantillas de usuario se codifican correctamente para nombres con
   acentos o espacios.
+- *Ejecutar* ya no lanza el contenido guardado anterior: escribe el buffer del
+  editor en el archivo abierto antes de ejecutarlo.
+- Un render que no genera MP4 nuevo ya no se anuncia como «renderizado exitoso»
+  con un video anterior.
+- La salida visual vuelve a mostrar el último render: Manim escribe en
+  `var/media/videos/` y el servidor emite el evento SSE `video`.
+- El editor ya no se reduce a una línea cuando el archivo está vacío: mantiene
+  la altura del contenedor y sigue haciendo scroll al crecer el contenido.
+- Los encabezados del editor y de la consola identifican el proyecto, la ruta y
+  el hecho de que se ejecuta el buffer del editor.
 
 ### Security
 
