@@ -26,8 +26,8 @@ Trabajas en español. Los nombres de variables y comentarios también.
 - Calidad de previsualización: `MANIM_QUALITY=low_quality`.
 - En el modo **Estudio**, el `.py` abierto manda: el asistente propone código,
   pero no lo guarda hasta que el usuario revisa el diff y pulsa **Aplicar**.
-- No hay interfaz de IR: los módulos de IR siguen en el backend, pero no tienen
-  vista ni botón.
+- No hay IR: el buffer del editor es la fuente de verdad y el contexto
+  adicional es solo lectura.
 
 ---
 
@@ -37,10 +37,11 @@ Trabajas en español. Los nombres de variables y comentarios también.
 | --- | --- | --- |
 | `CODE_SYSTEM_PROMPT` (`src/manim_studio/editor/prompts.py`) | JSON con `reply`, `summary` y `code` completo | `POST /api/workspace/code/apply`, previa revisión |
 
-El modelo **propone**: el guardado es siempre una decisión del usuario. El
-servidor valida la sintaxis del código con `ast.parse`, calcula un diff
-unificado y respeta el `sha256` del archivo para detectar cambios concurrentes
-(`409`).
+El modelo **propone**: el guardado es siempre una decisión del usuario. Solo se
+aceptan archivos activos `.py` o `.txt`; el resto se rechaza con `422`. El
+servidor valida `.py` con `ast.parse`, valida `.txt` como UTF-8, calcula un diff
+unificado y hunks para resaltado, y respeta el `sha256` del archivo para
+detectar cambios concurrentes (`409`).
 
 ---
 
@@ -293,14 +294,18 @@ Si algún punto falla, corrige el código antes de responder. No expliques el fa
 
 En el Estudio se usa `CODE_SYSTEM_PROMPT`. Sus reglas son:
 
-1. Trabaja sobre el código Python que se te pasa en el mensaje; no asumas un IR.
+1. Trabaja sobre el archivo activo que se te pasa en el mensaje; es el buffer
+   del editor y es la fuente de verdad. Los archivos bajo «Contexto adicional»
+   son solo lectura.
 2. Devuelve **solo** un objeto JSON con `reply`, `summary` y `code`.
    - `reply`: explicación corta en español.
-   - `summary`: objeto con las claves cambios detectadas (`formato`,
-     `iteraciones`, `ritmo`, etc.).
-   - `code`: archivo Python completo y sintácticamente válido.
+   - `summary`: lista de etiquetas de cambios (`formato`, `iteraciones`,
+     `ritmo`, `color`, `pasos`, etc.).
+   - `code`: archivo completo; Python válido si es `.py`, texto/LaTeX completo
+     si es `.txt`.
 3. Respeta el archivo abierto: cambia solo lo que pide el usuario y conserva
-   imports, nombres y estructura cuando no hay motivo para tocarlos.
+   imports, nombres y estructura cuando no hay motivo para tocarlos. Nunca
+   propongas cambios en archivos de contexto.
 4. Para formatos usa `FORMAT = "16:9" | "9:16" | "1:1"`. Para ritmo usa
    `ESCALA_TIEMPO`; para iteraciones, `MAX_ITERACIONES`.
 5. No escribas en disco, no llames a la API, no ejecutes el código y no uses

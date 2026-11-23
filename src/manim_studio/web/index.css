@@ -975,11 +975,10 @@ body {
 .shortcut-hint { opacity: 0.7; }
 
 .editor-wrapper {
-  display: grid;
-  grid-template-columns: 48px minmax(0, 1fr);
+  display: flex;
   background: var(--input-bg);
   flex: 1;
-  min-height: 220px;
+  min-height: 260px;
   position: relative;
   overflow: hidden;
 }
@@ -987,6 +986,7 @@ body {
 .editor-wrapper .CodeMirror,
 .editor-wrapper .CodeMirror-scroll {
   min-height: 100%;
+  width: 100%;
 }
 
 .line-numbers {
@@ -3443,7 +3443,7 @@ body {
 
 
 /* ==========================================================================
-   EDITOR DE ESCENAS (IR + JOBS)
+   AGENTE Y PROPUESTAS DE CÓDIGO
    ========================================================================== */
 .ed-toolbar {
   display: flex;
@@ -4227,18 +4227,99 @@ body {
   color: var(--color-primary);
 }
 
+.chat-context {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0.1rem 0 0.25rem;
+}
+
+.chat-context label {
+  font-size: 0.68rem;
+  color: var(--text-muted, #8b949e);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.chat-context-select {
+  flex: 1 1 auto;
+  min-width: 0;
+  background: var(--card-bg-elevated);
+  color: var(--text-primary, #e6edf3);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-sm);
+  padding: 0.25rem 0.35rem;
+  font-size: 0.7rem;
+}
+
+.chat-context-summary {
+  margin-bottom: 0.4rem;
+  font-size: 0.64rem;
+  color: var(--text-muted, #8b949e);
+}
+
 .chat-proposal-diff {
   margin: 0;
-  max-height: 140px;
+  max-height: 150px;
   overflow: auto;
-  background: #000;
+  background: #0d1117;
+  border: 1px solid #30363d;
   border-radius: 4px;
-  padding: 0.55rem;
+  padding: 0.25rem 0;
   font-family: var(--font-code);
   font-size: 0.66rem;
-  line-height: 1.5;
-  color: #d6d6d6;
+  line-height: 1.45;
+  color: #c9d1d9;
+}
+
+.chat-diff-hunk + .chat-diff-hunk {
+  border-top: 1px solid #30363d;
+}
+
+.chat-diff-header {
+  padding: 0.2rem 0.45rem;
+  background: #161b22;
+  color: #58a6ff;
   white-space: pre;
+}
+
+.chat-diff-row {
+  display: grid;
+  grid-template-columns: 2.4rem 2.4rem 0.9rem minmax(0, 1fr);
+  gap: 0.2rem;
+  padding: 0.05rem 0.45rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.chat-diff-num {
+  color: #6e7681;
+  text-align: right;
+  user-select: none;
+}
+
+.chat-diff-sign {
+  text-align: center;
+  user-select: none;
+}
+
+.chat-diff-add {
+  background: rgba(46, 160, 67, 0.18);
+  color: #aff5b4;
+}
+
+.chat-diff-remove {
+  background: rgba(248, 81, 73, 0.16);
+  color: #ffdcd7;
+}
+
+.chat-diff-context {
+  color: #8b949e;
+}
+
+.chat-diff-empty {
+  padding: 0.45rem;
+  color: #8b949e;
 }
 
 .chat-proposal-actions {
@@ -4671,8 +4752,8 @@ body {
 }
 
 .studio-panel .editor-wrapper {
-  flex: 1;
-  min-height: 0;
+  flex: 1 1 auto;
+  min-height: 260px;
 }
 
 .studio-panel .editor-meta {
@@ -4683,7 +4764,7 @@ body {
 
 .studio-panel .CodeMirror {
   height: 100%;
-  min-height: 0;
+  min-height: 100%;
   max-height: none;
 }
 

@@ -31,8 +31,8 @@
 
   <!-- Sistema visual «Pizarra Analítica» -->
   <link rel="stylesheet" href="/tokens.css?v=1">
-  <link rel="stylesheet" href="/index.css?v=6">
-  <link rel="stylesheet" href="/components.css?v=3">
+  <link rel="stylesheet" href="/index.css?v=7">
+  <link rel="stylesheet" href="/components.css?v=4">
   <script src="/icons.js?v=2"></script>
   <script src="/math.js?v=1"></script>
 </head>
@@ -200,18 +200,31 @@
               <span class="step-badge" data-icon="sparkle"></span>
               <div>
                 <h2 class="card-title">Asistente de código</h2>
-                <p class="card-desc">Propone un diff sobre el archivo abierto</p>
+                <p class="card-desc">Propone un diff sobre el .py o .txt abierto</p>
               </div>
             </div>
             <span id="chat-provider-badge" class="video-meta-badge">local</span>
           </div>
+          <div class="chat-context">
+            <label for="chat-context-mode">Contexto</label>
+            <select id="chat-context-mode" class="chat-context-select">
+              <option value="buffer">Buffer</option>
+              <option value="files">Archivos</option>
+              <option value="folder">Carpeta</option>
+              <option value="project">Proyecto</option>
+            </select>
+            <button type="button" id="chat-context-add" class="btn btn-secondary btn-sm" title="Añadir el archivo seleccionado">+</button>
+            <button type="button" id="chat-context-clear" class="btn btn-secondary btn-sm" title="Limpiar archivos de contexto">×</button>
+          </div>
+          <div id="chat-context-summary" class="chat-context-summary">Buffer · solo archivo activo</div>
           <div id="chat-log" class="chat-log" aria-live="polite"></div>
           <div id="chat-proposal" class="chat-proposal hidden">
             <div class="chat-proposal-head">
               <strong id="chat-proposal-title">Propuesta lista</strong>
+              <span id="chat-proposal-stats" class="ed-summary-chip"></span>
               <span id="chat-proposal-summary" class="ed-summary-chip"></span>
             </div>
-            <pre id="chat-proposal-diff" class="chat-proposal-diff"></pre>
+            <div id="chat-proposal-diff" class="chat-proposal-diff"></div>
             <div class="chat-proposal-actions">
               <button type="button" id="chat-apply" class="btn btn-primary btn-sm">Aplicar</button>
               <button type="button" id="chat-discard" class="btn btn-secondary btn-sm">Descartar</button>
@@ -1473,8 +1486,8 @@
     </div>
   </div>
 
-  <script src="/session.js?v=2"></script>
-  <script src="/app.js?v=6"></script>
-  <script src="/studio.js?v=4"></script>
+  <script src="/session.js?v=3"></script>
+  <script src="/app.js?v=8"></script>
+  <script src="/studio.js?v=5"></script>
 </body>
 </html>

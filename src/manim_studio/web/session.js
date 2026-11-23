@@ -15,7 +15,7 @@
 
   try {
     const xhr = new XMLHttpRequest();
-    xhr.open('GET', '/api/editor/bootstrap', false);
+    xhr.open('GET', '/api/workspace/bootstrap', false);
     xhr.send(null);
     if (xhr.status === 200) {
       bootstrapData = JSON.parse(xhr.responseText);

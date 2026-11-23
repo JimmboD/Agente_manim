@@ -6,10 +6,10 @@ La interfaz se abre en el **Estudio**: cada proyecto vive en una carpeta
 usuario revisa el diff antes de aplicar cambios. La previsualización se
 actualiza mientras se trabaja.
 
-> El asistente puede proponer código Python completo, pero no lo guarda: el
-> servidor valida la sintaxis y calcula el diff; solo «Aplicar» o `Ctrl+S`
-> escriben en disco. El backend de IR sigue en el repositorio, pero ya no tiene
-> interfaz.
+> El asistente puede proponer el archivo `.py` o `.txt` completo, pero no lo
+> guarda: el servidor valida el contenido y calcula el diff; solo «Aplicar» o
+> `Ctrl+S` escriben en disco. No hay representación intermedia: el buffer del
+> editor es la fuente de verdad.
 
 ## Características
 
@@ -17,8 +17,12 @@ actualiza mientras se trabaja.
   franja inferior **Terminal | Audio** debajo del video.
 - **Proyectos físicos**: `var/proyectos/<slug>/escenas/` para cada proyecto; se
   crean desde un título, se seleccionan y se borran desde la barra lateral.
-- **Flujo híbrido**: edición manual del `.py` o propuesta del asistente, siempre
-  con revisión → aplicación. Nada se guarda sin confirmación.
+- **Flujo híbrido**: edición manual del `.py`/`.txt` o propuesta del asistente,
+  siempre con revisión → aplicación. Nada se guarda sin confirmación.
+- **Revisión visual**: antes de aplicar, el diff aparece con filas verdes/rojas
+  estilo GitHub y el editor resalta las líneas afectadas sin modificar el buffer.
+- **Contexto por modos**: `buffer`, `files`, `folder` y `project`. Los archivos
+  adicionales se resuelven en servidor y son solo lectura.
 - **Control de cambios**: si el archivo cambia en disco mientras lo editas, la
   escritura se rechaza con `409` en lugar de sobrescribir tu trabajo.
 - **Sidebar unificada**: lista desplegable de proyectos, pestañas **Archivos**,
@@ -37,10 +41,10 @@ actualiza mientras se trabaja.
 - **Audio**: sube una grabación, ajusta el offset manualmente y exporta el video
   con la voz integrada.
 - **Persistencia local**: proyectos, plantillas de usuario, audios y medios bajo
-  `var/` (ignorado por Git); SQLite (`var/data/editor.db`) para escenas,
-  revisiones e historial de renders.
+  `var/` (ignorado por Git). El estado del proyecto vive en archivos de texto;
+  no se usa base de datos.
 - **Seguridad local**: token de sesión, validación de `Origin`, `safe_join` para
-  rutas y allowlist en el AST del código generado.
+  rutas, validación `sha256` y `ast.parse` para el `.py` activo.
 - **LLM real u local**: proveedor OpenAI-compatible por `.env`, con
   `MockProvider` automático si no hay clave configurada.
 - **Acceso local ahora, remoto después**: el servidor escucha en `127.0.0.1`; la
@@ -109,8 +113,8 @@ Controles de la sesión:
 
 ```
 src/manim_studio/
-  editor/     proyectos, workspace, DB, jobs, LLM, API y asistente de código;
-              módulos de IR heredados sin interfaz
+  editor/     proyectos, workspace, bundles, contexto, LLM, API y asistente
+              de código; sin representación intermedia
   motor/      planos, álgebra, plantillas del sistema y generador de ejercicios
   web/        interfaz HTML/CSS/JS (Pizarra Analítica, app.js y studio.js)
   __init__.py expone ROOT y PAQUETE_DIR
@@ -131,9 +135,11 @@ docs/         editor, estilo, prompt del sistema y referencia técnica
 1. `GET /api/workspace/files/tree` y `GET /api/workspace/files/read` alimentan
    el árbol y el editor. `Ctrl+S` usa `POST /api/workspace/files/write` con el
    `sha256` leído; un cambio concurrente devuelve `409`.
-2. `POST /api/workspace/code/propose` envía mensaje, ruta, código y algo de
-   historia. Devuelve `{reply, summary, code, code_diff, path}` sin escribir.
-   El frontend muestra el diff y ofrece **Aplicar**/**Descartar**.
+2. `POST /api/workspace/code/propose` envía mensaje, ruta, código, historia y
+   `context` (`buffer`/`files`/`folder`/`project`). Devuelve `reply`, `summary`,
+   `code`, `code_diff`, `hunks`, `stats` y `path`, sin escribir.
+   El frontend pinta el diff tipo GitHub, marca el editor y ofrece
+   **Aplicar**/**Descartar**.
 3. `POST /api/workspace/code/apply` revalida el `sha256` y escribe solo tras
    la confirmación del usuario.
 4. `POST /api/run_main` ejecuta la ruta `path` del archivo abierto: debe ser un
@@ -145,12 +151,16 @@ docs/         editor, estilo, prompt del sistema y referencia técnica
    (`src/manim_studio/motor/plantillas/`) son de solo lectura; las del usuario
    viven en `var/plantillas/`, se crean desde la pestaña **Plantillas** y la
    estrella las marca como favoritas (preferencia local del navegador).
+6. «Pasos algebraicos» es un bundle: `POST /api/workspace/templates/deploy`
+   crea `escenas/pasos_algebraicos.py` y `escenas/pasos_algebraicos.txt` en el
+   proyecto activo, abre el `.py` y pide confirmación (con `sha256`) antes de
+   sobrescribir archivos existentes.
 
-### Backend de IR (sin interfaz)
+### Sin representación intermedia
 
-Los módulos `src/manim_studio/editor/ir.py` y `codegen.py` siguen en el
-repositorio, pero no hay vista de editor de IR, botón **IR** ni panel IR. No
-forman parte del flujo del Estudio.
+El IR y sus módulos de soporte (`ir.py`, `codegen.py`, `api.py`, `db.py`,
+`jobs.py` y `scenes/`) se eliminaron. El asistente trabaja solo con el archivo
+activo y con contexto de solo lectura resuelto por el servidor.
 
 La API del estudio está resumida en [`docs/EDITOR.md`](docs/EDITOR.md). La
 referencia del motor se consulta dentro de **Ajustes y documentación** y también
@@ -164,10 +174,10 @@ está disponible en
 .\.venv\Scripts\python.exe -m compileall -q src tests scripts escenas
 ```
 
-La suite (69 pruebas) cubre proyectos físicos, migración del contenido
-heredado, ajustes, resolución estricta de la ejecución, validación del IR,
-generación de código, control de revisiones, proveedores LLM y seguridad de
-rutas/token.
+La suite (48 pruebas) cubre proyectos físicos, migración del contenido
+heredado, ajustes, resolución estricta de la ejecución, bundles multiarchivo,
+contexto, propuestas `.py`/`.txt`, proveedores LLM, control de revisiones y
+seguridad de rutas/token.
 
 ## Documentación
 

@@ -561,6 +561,41 @@ details > summary .icon:first-child { margin-right: 8px; }
 .editor-wrapper .line-numbers { display: none !important; }
 .cm-ready ~ .line-numbers { max-height: 280px; }
 
+/* Resaltado de la propuesta pendiente, antes de pulsar «Aplicar». */
+.CodeMirror .cm-proposal-added {
+  background: rgba(46, 160, 67, 0.20) !important;
+  box-shadow: inset 3px 0 #2ea043;
+}
+.CodeMirror .cm-proposal-removed {
+  background: rgba(248, 81, 73, 0.18) !important;
+  box-shadow: inset 3px 0 #f85149;
+}
+.CodeMirror-gutter.proposal-gutter {
+  width: 16px !important;
+  min-width: 16px;
+  background: var(--ink-0) !important;
+}
+.cm-proposal-gutter-add,
+.cm-proposal-gutter-remove {
+  display: block;
+  width: 100%;
+  text-align: center;
+  font-weight: 700;
+  font-family: var(--font-code);
+}
+.cm-proposal-gutter-add { color: #3fb950; }
+.cm-proposal-gutter-remove { color: #f85149; }
+.cm-proposal-removed-widget {
+  background: rgba(248, 81, 73, 0.10);
+  border-left: 3px solid #f85149;
+  color: #ffdcd7;
+  font-family: var(--font-code);
+  font-size: 0.72rem;
+  padding: 0.05rem 0.5rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 /* --------------------------------------------------------------------------
    Ajustes generales de las vistas heredadas
    -------------------------------------------------------------------------- */

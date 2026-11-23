@@ -23,7 +23,6 @@ EDITOR_MEDIA_DIR = MEDIA_DIR / "editor"
 AUDIO_DIR = VAR_DIR / "audios"
 DATA_DIR = VAR_DIR / "data"
 PROJECTS_DIR = VAR_DIR / "proyectos"
-DB_PATH = DATA_DIR / "editor.db"
 TOKEN_PATH = DATA_DIR / "session_token"
 
 # Rutas heredadas: se conservan para/scripts antiguos, pero el estudio trabaja

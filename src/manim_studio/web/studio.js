@@ -24,6 +24,12 @@
   let savingPromise = null;
   let chatHistory = [];
   let favorites = loadFavorites();
+  let contextMode = 'buffer';
+  let contextPaths = [];
+  let suppressProposalInvalidation = false;
+  let proposalMarkers = [];
+  let proposalWidgets = [];
+  let lastContextInfo = null;
   let dom = {};
 
   function $(id) {
@@ -106,6 +112,23 @@
     if (typeof state !== 'undefined') state.isDirty = true;
     if (dom.unsaved) dom.unsaved.classList.remove('hidden');
     setSaveStatus('unsaved', 'Cambios sin guardar');
+    if (!suppressProposalInvalidation && pendingProposal) {
+      clearProposal();
+      appendChat(
+        'assistant',
+        'El archivo cambió desde la propuesta. Vuelve a pedir el cambio para revisarlo.',
+        'chat-fallback'
+      );
+    }
+  }
+
+  function setEditorValue(value) {
+    suppressProposalInvalidation = true;
+    try {
+      if (typeof setCodeValue === 'function') setCodeValue(value);
+    } finally {
+      suppressProposalInvalidation = false;
+    }
   }
 
   function markSaved(sha) {
@@ -136,14 +159,16 @@
   async function loadFile(path, options) {
     const opts = options || {};
     if (!confirmDiscard(path)) return false;
+    clearProposal();
     try {
       const data = await api('GET', `${API}/files/read?path=${encodeURIComponent(path)}`);
       currentPath = data.path;
       currentSha = data.sha256;
       selectedPath = data.path;
       dirty = false;
-      if (typeof setCodeValue === 'function') setCodeValue(data.code);
+      setEditorValue(data.code);
       syncActiveFile(data.path);
+      updateChatAvailability();
       markSaved(data.sha256);
       if (!opts.silent) {
         log('system', `${data.path} cargado (${data.size} bytes).`);
@@ -159,11 +184,13 @@
 
   function loadTemplateCode(code, path) {
     if (!confirmDiscard(path)) return false;
+    clearProposal();
     currentPath = path;
     currentSha = null;
     selectedPath = path;
-    if (typeof setCodeValue === 'function') setCodeValue(code);
+    setEditorValue(code);
     syncActiveFile(path);
+    updateChatAvailability();
     markDirty();
     log('system', `Plantilla cargada en ${path}. Guárdala con Ctrl+S si quieres conservarla.`);
     highlightSelected();
@@ -589,6 +616,10 @@
   }
 
   async function loadTemplate(template) {
+    if (template.bundle) {
+      await deployTemplate(template.id);
+      return;
+    }
     try {
       const separator = template.source.includes('?') ? '&' : '?';
       const response = await fetch(
@@ -631,34 +662,247 @@
     dom.chatLog.scrollTop = dom.chatLog.scrollHeight;
   }
 
+  function isEditablePath(path) {
+    return /\.(py|txt)$/i.test(String(path || ''));
+  }
+
+  function getProposalEditor() {
+    const wrapper = document.querySelector('.editor-wrapper .CodeMirror')
+      || document.querySelector('.CodeMirror');
+    return wrapper && wrapper.CodeMirror ? wrapper.CodeMirror : null;
+  }
+
+  function clearProposalMarkers() {
+    const cm = getProposalEditor();
+    if (cm) {
+      for (const marker of proposalMarkers) {
+        cm.removeLineClass(marker.line, 'background', marker.className);
+      }
+      cm.clearGutter('proposal-gutter');
+    }
+    for (const widget of proposalWidgets) {
+      try { widget.clear(); } catch (error) { /* ya eliminado */ }
+    }
+    proposalMarkers = [];
+    proposalWidgets = [];
+  }
+
+  function markProposalInEditor(hunks) {
+    clearProposalMarkers();
+    const cm = getProposalEditor();
+    if (!cm || !Array.isArray(hunks) || !hunks.length) return;
+    const lastLine = cm.lineCount() - 1;
+
+    for (const hunk of hunks) {
+      for (const row of hunk.lines || []) {
+        const isAdd = row.type === 'add';
+        const isRemove = row.type === 'remove';
+        if (!isAdd && !isRemove) continue;
+        const lineNumber = isAdd ? row.new : row.old;
+        if (!Number.isInteger(lineNumber)) continue;
+        const index = lineNumber - 1;
+        if (index < 0 || index > lastLine) continue;
+
+        const className = isAdd ? 'cm-proposal-added' : 'cm-proposal-removed';
+        cm.addLineClass(index, 'background', className);
+        proposalMarkers.push({ line: index, className });
+        const marker = make(
+          'span',
+          isAdd ? 'cm-proposal-gutter-add' : 'cm-proposal-gutter-remove',
+          isAdd ? '+' : '−'
+        );
+        cm.setGutterMarker(index, 'proposal-gutter', marker);
+
+        if (isRemove) {
+          const ghost = make('div', 'cm-proposal-removed-widget', `− ${row.text || ''}`);
+          proposalWidgets.push(cm.addLineWidget(index, ghost, { above: true, coverGutter: false }));
+        }
+      }
+    }
+    cm.refresh();
+  }
+
+  function renderDiff(hunks, stats) {
+    if (!dom.chatProposalDiff) return;
+    dom.chatProposalDiff.replaceChildren();
+    if (!Array.isArray(hunks) || !hunks.length) {
+      dom.chatProposalDiff.appendChild(make('div', 'chat-diff-empty', 'Sin cambios en el código.'));
+      return;
+    }
+
+    for (const hunk of hunks) {
+      const section = make('div', 'chat-diff-hunk');
+      section.appendChild(
+        make(
+          'div',
+          'chat-diff-header',
+          `@@ -${hunk.old_start},${hunk.old_count} +${hunk.new_start},${hunk.new_count} @@`
+        )
+      );
+      for (const row of hunk.lines || []) {
+        const line = make('div', `chat-diff-row chat-diff-${row.type}`);
+        line.appendChild(make('span', 'chat-diff-num', row.old == null ? '' : String(row.old)));
+        line.appendChild(make('span', 'chat-diff-num', row.new == null ? '' : String(row.new)));
+        const sign = row.type === 'add' ? '+' : row.type === 'remove' ? '−' : ' ';
+        line.appendChild(make('span', 'chat-diff-sign', sign));
+        line.appendChild(make('span', 'chat-diff-text', row.text));
+        section.appendChild(line);
+      }
+      dom.chatProposalDiff.appendChild(section);
+    }
+    dom.chatProposalDiff.scrollTop = 0;
+  }
+
   function showProposal(data) {
     pendingProposal = {
       path: data.path || currentPath,
       code: data.code,
       sha256: currentSha,
       baseCode: typeof getCode === 'function' ? getCode() : '',
+      hunks: data.hunks || [],
     };
     if (!dom.chatProposal) return;
     dom.chatProposal.classList.remove('hidden');
-    dom.chatProposalTitle.textContent = 'Propuesta lista para revisar';
+    dom.chatProposalTitle.textContent = `Propuesta lista · ${basename(pendingProposal.path)}`;
     dom.chatProposalSummary.textContent = (data.summary || []).join(' · ');
-    dom.chatProposalDiff.textContent = data.code_diff || 'Sin cambios en el código.';
+    const stats = data.stats || { added: 0, removed: 0 };
+    if (dom.chatProposalStats) {
+      dom.chatProposalStats.textContent = `+${stats.added || 0} −${stats.removed || 0}`;
+    }
+    renderDiff(data.hunks, stats);
+    markProposalInEditor(data.hunks);
     if (dom.chatProvider) dom.chatProvider.textContent = data.provider || 'local';
     dom.chatApply.disabled = false;
   }
 
   function clearProposal() {
     pendingProposal = null;
+    clearProposalMarkers();
     if (!dom.chatProposal) return;
     dom.chatProposal.classList.add('hidden');
-    dom.chatProposalDiff.textContent = '';
+    dom.chatProposalDiff.replaceChildren();
     dom.chatProposalSummary.textContent = '';
+    if (dom.chatProposalStats) dom.chatProposalStats.textContent = '';
+  }
+
+  function updateChatAvailability() {
+    const editable = isEditablePath(currentPath);
+    if (dom.chatInput) {
+      dom.chatInput.disabled = !editable;
+      dom.chatInput.placeholder = editable
+        ? 'Pide un cambio al archivo…'
+        : 'Abre un .py o .txt para proponer cambios';
+    }
+    if (dom.chatSubmit) dom.chatSubmit.disabled = !editable;
+    if (!editable && dom.chatContextSummary) {
+      dom.chatContextSummary.textContent = 'Archivo solo de contexto · abre un .py o .txt';
+      return;
+    }
+    renderContextSummary();
+  }
+
+  function renderContextSummary() {
+    if (!dom.chatContextSummary || !isEditablePath(currentPath)) return;
+    if (lastContextInfo && lastContextInfo.mode === contextMode) {
+      const count = (lastContextInfo.files || []).length;
+      const kb = ((lastContextInfo.chars || 0) / 1024).toFixed(1);
+      dom.chatContextSummary.textContent = `${contextLabel(contextMode)} · ${count} archivos · ${kb} kB · solo lectura`;
+      return;
+    }
+    if (contextMode === 'files') {
+      dom.chatContextSummary.textContent = contextPaths.length
+        ? `${contextLabel(contextMode)} · ${contextPaths.length} seleccionados · solo lectura`
+        : 'Archivos · pulsa + para añadir desde el árbol';
+      return;
+    }
+    if (contextMode === 'folder') {
+      dom.chatContextSummary.textContent = `Carpeta · ${contextFolder() || 'selecciona una carpeta'} · solo lectura`;
+      return;
+    }
+    dom.chatContextSummary.textContent = `${contextLabel(contextMode)} · archivo activo`;
+  }
+
+  function contextLabel(mode) {
+    return {
+      buffer: 'Buffer',
+      files: 'Archivos',
+      folder: 'Carpeta',
+      project: 'Proyecto',
+    }[mode] || 'Buffer';
+  }
+
+  function contextFolder() {
+    if (!selectedPath) return '';
+    const node = nodeIndex[selectedPath];
+    if (node && node.type === 'folder') return selectedPath;
+    const parts = selectedPath.split('/');
+    return parts.length > 1 ? parts.slice(0, -1).join('/') : '';
+  }
+
+  function contextPathsForRequest() {
+    if (contextMode === 'files') return contextPaths.slice();
+    if (contextMode === 'folder') {
+      const folder = contextFolder();
+      return folder ? [folder] : [];
+    }
+    return [];
+  }
+
+  function addContextPath() {
+    if (contextMode === 'files') {
+      const node = nodeIndex[selectedPath];
+      if (!selectedPath || (node && node.type !== 'file')) {
+        log('system', 'Selecciona un archivo en el árbol para añadirlo al contexto.');
+        return;
+      }
+      if (!contextPaths.includes(selectedPath)) contextPaths.push(selectedPath);
+    }
+    lastContextInfo = null;
+    renderContextSummary();
+  }
+
+  function changeContextMode(mode) {
+    contextMode = mode;
+    lastContextInfo = null;
+    if (mode === 'files' && !contextPaths.length && selectedPath && nodeIndex[selectedPath]?.type === 'file') {
+      contextPaths.push(selectedPath);
+    }
+    renderContextSummary();
+  }
+
+  async function deployTemplate(templateId, options) {
+    const opts = options || {};
+    const payload = Object.assign({ template: templateId, project: activeProject }, opts);
+    let data;
+    try {
+      data = await api('POST', `${API}/templates/deploy`, payload);
+    } catch (error) {
+      if (error.status !== 409 || !error.data || !error.data.conflicts) throw error;
+      const names = error.data.conflicts.map((item) => item.path).join(', ');
+      if (!window.confirm(`Ya existen estos archivos:\n${names}\n\n¿Sobrescribirlos?`)) {
+        log('system', 'Despliegue de plantilla cancelado.');
+        return null;
+      }
+      data = await api('POST', `${API}/templates/deploy`, Object.assign({}, payload, {
+        overwrite: true,
+        expected_shas: error.data.expected_shas,
+      }));
+    }
+    await refreshTree();
+    if (data.open) await loadFile(data.open, { silent: true });
+    const deployed = (data.files || []).map((item) => item.path).join(' + ');
+    log('success', `Plantilla desplegada: ${deployed}. Abierto ${data.open}.`);
+    return data;
   }
 
   async function sendChat(event) {
     if (event) event.preventDefault();
     const message = (dom.chatInput ? dom.chatInput.value : '').trim();
     if (!message) return;
+    if (!isEditablePath(currentPath)) {
+      appendChat('assistant', 'Abre un archivo .py o .txt para proponer cambios.', 'chat-error');
+      return;
+    }
     if (dom.chatSubmit) dom.chatSubmit.disabled = true;
     appendChat('user', message);
     chatHistory.push({ role: 'user', content: message });
@@ -670,16 +914,24 @@
         path: currentPath,
         code: typeof getCode === 'function' ? getCode() : '',
         history: chatHistory.slice(-6),
+        context: {
+          mode: contextMode,
+          paths: contextPathsForRequest(),
+        },
       });
       appendChat('assistant', data.reply, data.fallback ? 'chat-fallback' : '');
       if (data.fallback) appendChat('assistant', data.fallback, 'chat-fallback');
       chatHistory.push({ role: 'assistant', content: data.reply });
+      if (data.context) {
+        lastContextInfo = data.context;
+        renderContextSummary();
+      }
       if (data.code && data.code_diff) showProposal(data);
       else clearProposal();
     } catch (error) {
       appendChat('assistant', error.message, 'chat-error');
     } finally {
-      if (dom.chatSubmit) dom.chatSubmit.disabled = false;
+      if (dom.chatSubmit) dom.chatSubmit.disabled = !isEditablePath(currentPath);
     }
   }
 
@@ -698,11 +950,12 @@
       currentPath = data.path;
       currentSha = data.sha256;
       selectedPath = data.path;
-      if (typeof setCodeValue === 'function') setCodeValue(pendingProposal.code);
+      setEditorValue(pendingProposal.code);
       syncActiveFile(data.path);
       markSaved(data.sha256);
       appendChat('assistant', `Propuesta aplicada y guardada en ${data.path}.`, 'chat-applied');
       clearProposal();
+      updateChatAvailability();
       refreshTree();
     } catch (error) {
       appendChat('assistant', `No se pudo aplicar: ${error.message}`, 'chat-error');
@@ -749,6 +1002,17 @@
         if (!name) return;
         createTemplateFromEditor(name);
         dom.tplCreateName.value = '';
+      });
+    }
+    if (dom.chatContextMode) {
+      dom.chatContextMode.addEventListener('change', (event) => changeContextMode(event.target.value));
+    }
+    if (dom.chatContextAdd) dom.chatContextAdd.addEventListener('click', addContextPath);
+    if (dom.chatContextClear) {
+      dom.chatContextClear.addEventListener('click', () => {
+        contextPaths = [];
+        lastContextInfo = null;
+        renderContextSummary();
       });
     }
     if (dom.chatForm) dom.chatForm.addEventListener('submit', sendChat);
@@ -803,16 +1067,23 @@
       chatProposal: $('chat-proposal'),
       chatProposalTitle: $('chat-proposal-title'),
       chatProposalSummary: $('chat-proposal-summary'),
+      chatProposalStats: $('chat-proposal-stats'),
       chatProposalDiff: $('chat-proposal-diff'),
       chatApply: $('chat-apply'),
       chatDiscard: $('chat-discard'),
       chatProvider: $('chat-provider-badge'),
+      chatContextMode: $('chat-context-mode'),
+      chatContextAdd: $('chat-context-add'),
+      chatContextClear: $('chat-context-clear'),
+      chatContextSummary: $('chat-context-summary'),
     };
     if (!dom.treeList) return;
     bind();
     markSaved();
     await loadProjects();
     await openProjectMain();
+    updateChatAvailability();
+    renderContextSummary();
   }
 
   window.Studio = {
@@ -822,6 +1093,7 @@
     isDirty: () => dirty,
     loadFile,
     loadTemplateCode,
+    deployTemplate,
     saveActiveFile,
     markDirty,
     markSaved,

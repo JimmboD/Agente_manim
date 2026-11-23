@@ -64,6 +64,8 @@ SYSTEM_TEMPLATE_PATHS = {
     "simplex": "plantillas/investigacion_operaciones/Simplex.py",
 }
 
+BUNDLE_TEMPLATE_IDS = {"pasos_algebraicos"}
+
 BUILTIN_TEMPLATES = [
     ("biseccion", "Bisección", "Análisis numérico"),
     ("regla_falsa", "Regla falsa", "Análisis numérico"),
@@ -353,17 +355,24 @@ def upload_audio(name: str, data_b64: str) -> dict:
 
 
 def templates() -> dict:
-    items = [
-        {
-            "id": template_id,
-            "name": name,
-            "category": category,
-            "origin": "motor",
-            "path": SYSTEM_TEMPLATE_PATHS.get(template_id, f"plantillas/{template_id}"),
-            "source": f"/api/get_template?id={template_id}",
-        }
-        for template_id, name, category in BUILTIN_TEMPLATES
-    ]
+    items = []
+    for template_id, name, category in BUILTIN_TEMPLATES:
+        is_bundle = template_id in BUNDLE_TEMPLATE_IDS
+        items.append(
+            {
+                "id": template_id,
+                "name": name,
+                "category": category,
+                "origin": "motor",
+                "bundle": is_bundle,
+                "path": SYSTEM_TEMPLATE_PATHS.get(template_id, f"plantillas/{template_id}"),
+                "source": (
+                    "/api/workspace/templates/deploy"
+                    if is_bundle
+                    else f"/api/get_template?id={template_id}"
+                ),
+            }
+        )
     USER_TEMPLATES_DIR.mkdir(parents=True, exist_ok=True)
     for path in sorted(USER_TEMPLATES_DIR.glob("*.py")):
         items.append(

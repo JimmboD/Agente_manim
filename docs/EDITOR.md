@@ -7,8 +7,8 @@ El archivo `.py` abierto es la fuente de verdad: se edita directamente,
 como diff antes de aplicar. La previsualización se actualiza mientras se
 trabaja.
 
-No hay botón **IR** ni vista de editor de IR: los módulos de IR siguen en el
-backend, pero no forman parte de la interfaz.
+No hay IR ni vista de editor de IR: se eliminaron los módulos que lo soportaban.
+El asistente solo trabaja con el archivo activo y con contexto de solo lectura.
 
 ## Cómo arrancar
 
@@ -29,9 +29,8 @@ botón **Apagar servidor**.
 - Plantillas de usuario: `var/plantillas/`; plantillas del sistema:
   `src/manim_studio/motor/plantillas/`.
 - Ajustes: `var/data/settings.json`.
-- Base de datos: `var/data/editor.db` (SQLite, WAL).
 - Token de sesión: `var/data/session_token` (se crea al primer arranque).
-- Medios de cada job: `var/media/editor/<job_id>/`.
+- Medios de cada render: `var/media/videos/`.
 - Audios subidos: `var/audios/` (no se versionan MP3).
 - Todo lo anterior bajo `var/` está ignorado por Git.
 
@@ -103,6 +102,7 @@ Para usar un modelo real, copia `.env.example` a `.env` y rellena la clave. Sin
 
 | Método | Ruta | Uso |
 | --- | --- | --- |
+| `GET` | `/api/workspace/bootstrap` | Token, formatos, calidades y proveedor LLM |
 | `GET` | `/api/workspace/projects` | Proyectos, proyecto activo y ajustes |
 | `POST` | `/api/workspace/projects` | Crea un proyecto desde `title` |
 | `POST` | `/api/workspace/projects/select` | Selecciona un `slug` |
@@ -118,7 +118,8 @@ Para usar un modelo real, copia `.env.example` a `.env` y rellena la clave. Sin
 | `POST` | `/api/workspace/files/upload` | Sube un audio a `var/audios/` |
 | `GET` | `/api/workspace/templates` | Plantillas del sistema y del usuario |
 | `POST` | `/api/workspace/templates` | Crea una plantilla con el código abierto |
-| `POST` | `/api/workspace/code/propose` | Propone código + diff, sin guardar |
+| `POST` | `/api/workspace/templates/deploy` | Despliega un bundle multiarchivo |
+| `POST` | `/api/workspace/code/propose` | Propone archivo + hunks/diff, sin guardar |
 | `POST` | `/api/workspace/code/apply` | Aplica una propuesta ya revisada |
 | `POST` | `/api/run_main` | Ejecuta la ruta `path` validada del proyecto activo |
 
@@ -127,16 +128,21 @@ En la API, `mis-plantillas` es la raíz pública de `var/plantillas/` y
 
 Todas las rutas mutantes exigen `X-Session-Token` y un `Origin` local.
 
-## Backend de IR (sin interfaz)
+`/api/workspace/code/propose` acepta `context.mode` (`buffer`, `files`,
+`folder`, `project`) y `context.paths`. El servidor resuelve las rutas, excluye
+binarios y carpetas generadas, y adjunta los archivos como solo lectura. El
+modelo solo puede proponer cambios al archivo activo si termina en `.py` o
+`.txt`; cualquier otra extensión se rechaza con `422`.
 
-Los módulos `src/manim_studio/editor/ir.py`, `codegen.py` y `api.py` siguen en el
-repositorio, pero no hay vista de editor de IR, botón **IR** ni panel IR. El IR
-no forma parte del flujo del Estudio ni se expone en la navegación.
+`templates/deploy` responde `409` con `conflicts` y `expected_shas` si algún
+archivo ya existe. La interfaz pregunta antes de sobrescribir y reenvía esos
+hashes para evitar una carrera. «Pasos algebraicos» despliega el script y su
+`.txt`, y abre el script.
 
 ## Seguridad local
 
 - Toda petición mutante exige `X-Session-Token` (comparación en tiempo
-  constante). El token se entrega en `/api/editor/bootstrap`, que no es legible
+  constante). El token se entrega en `/api/workspace/bootstrap`, que no es legible
   desde otros orígenes.
 - `Origin` se valida contra `127.0.0.1`, `localhost` y `[::1]` en el puerto
   activo; no se emite CORS comodín.
@@ -185,25 +191,27 @@ node --check src\manim_studio\web\app.js
 node --check src\manim_studio\web\studio.js
 ```
 
-La suite (69 pruebas) cubre seguridad de rutas y tokens, validación del IR,
-generación de código, SQLite, proveedores LLM, reparación de parches, conflictos
-de revisión, workspace, proyectos físicos, migración, ajustes, resolución
-estricta de la ejecución y propuestas de código.
+La suite (48 pruebas) cubre seguridad de rutas y tokens, proveedores LLM,
+bundles multiarchivo, contexto, propuestas `.py`/`.txt`, conflictos de
+revisión, workspace, proyectos físicos, migración, ajustes y resolución
+estricta de la ejecución.
 
 ## Proveedor LLM
 
 `src/manim_studio/editor/llm.py` define la interfaz `LLMProvider` y dos
 implementaciones:
 
-- `MockProvider`: heurísticas en español, sin red (formato, iteraciones, ritmo,
-  velocidad y código completo para el asistente del Estudio).
+- `MockProvider`: proveedor local sin red. Las heurísticas en español viven en
+  `code_assistant.py` y producen propuestas completas para `.py` y `.txt`.
 - `OpenAICompatibleProvider`: habla `/chat/completions` con OpenAI, DeepSeek,
   OpenRouter u Ollama. `get_provider()` elige el proveedor según `.env`.
 
 El Estudio usa `CODE_SYSTEM_PROMPT` en
 `src/manim_studio/editor/prompts.py`: pide un JSON con `reply`, `summary` y
-`code` completo; el servidor valida la sintaxis, genera el diff y respeta el
-`sha256` del archivo para detectar cambios concurrentes (`409`).
+`code` completo. El buffer activo va primero; el contexto adicional se marca
+como solo lectura. El servidor valida `.py` con `ast.parse`, valida `.txt` como
+UTF-8, genera `hunks` y diff, y respeta el `sha256` del archivo para detectar
+cambios concurrentes (`409`).
 
 Variables de `.env`:
 
@@ -217,5 +225,5 @@ LLM_MAX_TOKENS=1200
 ```
 
 Si `LLM_PROVIDER` es `ollama`, no hace falta clave. Si no hay clave para los
-demás proveedores, `get_provider()` cae a `MockProvider` y `/api/editor/bootstrap`
+demás proveedores, `get_provider()` cae a `MockProvider` y `/api/workspace/bootstrap`
 lo indica en `llm.mock`.

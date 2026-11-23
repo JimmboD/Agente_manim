@@ -22,11 +22,9 @@ from pathlib import Path
 
 from manim_studio import PAQUETE_DIR, ROOT
 from manim_studio.control import detener_render, solicitar_apagado
-from manim_studio.editor.api import EditorAPI
 from manim_studio.editor.config import (
     ALLOWED_AUDIO_EXTENSIONS,
     AUDIO_DIR,
-    DB_PATH,
     MAIN_PY_PATH,
     MAX_UPLOAD_BYTES,
     MEDIA_DIR,
@@ -37,8 +35,6 @@ from manim_studio.editor.config import (
     ensure_directories,
 )
 from manim_studio.editor import projects, workspace
-from manim_studio.editor.db import Database
-from manim_studio.editor.jobs import JobManager
 from manim_studio.editor.llm import get_provider
 from manim_studio.editor.security import (
     UnsafePathError,
@@ -255,15 +251,14 @@ def get_media_duration(file_path):
 _generador_ejercicios_mod = None
 
 # ---------------------------------------------------------------------------
-# Editor de escenas (SQLite + jobs de render + proveedor LLM)
+# Espacio de trabajo del estudio y proveedor LLM
 # ---------------------------------------------------------------------------
 _editor_lock = threading.Lock()
-_editor_api = None
 _workspace_api = None
 _editor_token = None
 
 
-def get_editor_token():
+def get_session_token():
     global _editor_token
     if _editor_token is None:
         ensure_directories()
@@ -271,29 +266,15 @@ def get_editor_token():
     return _editor_token
 
 
-def get_editor_api():
-    global _editor_api
-    if _editor_api is None:
-        with _editor_lock:
-            if _editor_api is None:
-                ensure_directories()
-                db = Database(DB_PATH)
-                jobs = JobManager(db, broadcast=broadcast_sse)
-                _editor_api = EditorAPI(
-                    db,
-                    jobs,
-                    get_provider(),
-                    token=get_editor_token(),
-                )
-    return _editor_api
-
-
 def get_workspace_api():
     global _workspace_api
     if _workspace_api is None:
         with _editor_lock:
             if _workspace_api is None:
-                _workspace_api = WorkspaceAPI(llm=get_editor_api().llm)
+                _workspace_api = WorkspaceAPI(
+                    llm=get_provider(),
+                    token=get_session_token(),
+                )
     return _workspace_api
 
 
@@ -448,7 +429,7 @@ class ManimStudioHandler(BaseHTTPRequestHandler):
 
     def require_token(self):
         provided = self.headers.get("X-Session-Token")
-        if token_matches(get_editor_token(), provided):
+        if token_matches(get_session_token(), provided):
             return True
         self.send_response(403)
         self.send_header("Content-Type", "application/json; charset=utf-8")
@@ -475,9 +456,6 @@ class ManimStudioHandler(BaseHTTPRequestHandler):
         if not self.require_trusted_origin():
             return
 
-        editor = get_editor_api()
-        if editor.handle(self, "GET", path, parse_qs(parsed.query), b""):
-            return
         if get_workspace_api().handle(self, "GET", path, parse_qs(parsed.query), b""):
             return
 
@@ -786,9 +764,6 @@ class ManimStudioHandler(BaseHTTPRequestHandler):
         if not self.require_token():
             return
 
-        editor = get_editor_api()
-        if editor.handle(self, "POST", path, parse_qs(parsed.query), body):
-            return
         if get_workspace_api().handle(self, "POST", path, parse_qs(parsed.query), body):
             return
 
@@ -1114,9 +1089,6 @@ class ManimStudioHandler(BaseHTTPRequestHandler):
         if not self.require_token():
             return
 
-        editor = get_editor_api()
-        if editor.handle(self, "PUT", parsed.path, parse_qs(parsed.query), body):
-            return
         if get_workspace_api().handle(self, "PUT", parsed.path, parse_qs(parsed.query), body):
             return
 

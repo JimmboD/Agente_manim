@@ -33,7 +33,17 @@ y el proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `sha256` para evitar sobrescrituras concurrentes.
 - `tests/test_projects.py` para proyectos, migración, ajustes y resolución
   estricta de la ejecución, del buffer del editor y del video reciente; la suite
-  queda en 71 pruebas.
+  queda en 48 pruebas.
+- Bundle **Pasos algebraicos**: al elegir la plantilla se despliegan
+  `escenas/pasos_algebraicos.py` y `escenas/pasos_algebraicos.txt`, se abre el
+  script y se pide confirmación antes de sobrescribir archivos existentes.
+- Modos de contexto `buffer`, `files`, `folder` y `project`; el buffer activo va
+  siempre primero y el resto de archivos se marcan como solo lectura.
+- Vista previa del diff tipo GitHub antes de aplicar: filas con números de
+  línea, verde/rojo, estadísticas `+N −M` y resaltado en CodeMirror sin tocar
+  el buffer.
+- Propuestas también para archivos `.txt` (contenido textual completo, sin
+  `ast.parse`); los demás tipos de archivo se rechazan con `422`.
 
 ### Changed
 
@@ -50,12 +60,18 @@ y el proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   proceso, la terminal muestra la ruta resuelta y se conserva la compatibilidad
   con llamadas heredadas que solo envían `code`.
 - Documentación de usuario y técnica actualizada al flujo del Estudio.
+- El bootstrap del estudio pasa de `/api/editor/bootstrap` a
+  `/api/workspace/bootstrap`; `WorkspaceAPI` obtiene el proveedor LLM y el token
+  directamente.
+- `code_assistant.py` valida según la extensión, calcula `hunks`/`stats` con
+  `difflib` y usa el contexto solo para el prompt; `code/apply` sigue siendo de
+  un solo archivo.
 
 ### Removed
 
-- Interfaz y opción de IR: vista de editor de escenas, botón **IR** y panel IR
-  del antiguo `editor.js`. Los módulos de IR siguen existiendo en backend, pero
-  no tienen UI.
+- El IR por completo: `ir.py`, `codegen.py`, `api.py`, `db.py`, `jobs.py`,
+  `scenes/`, sus prompts de parche/reparación y sus pruebas. Tampoco se usa la
+  base de datos SQLite `var/data/editor.db`.
 - Vista separada de documentación: `REFERENCIA_TECNICA.md` se visualiza dentro
   de Ajustes.
 
@@ -74,6 +90,8 @@ y el proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `var/media/videos/` y el servidor emite el evento SSE `video`.
 - El editor ya no se reduce a una línea cuando el archivo está vacío: mantiene
   la altura del contenedor y sigue haciendo scroll al crecer el contenido.
+- El editor recupera el ancho completo de la columna central: el contenedor
+  vuelve a ser `flex` para que CodeMirror no quede confinado a 48 px.
 - Los encabezados del editor y de la consola identifican el proyecto, la ruta y
   el hecho de que se ejecuta el buffer del editor.
 

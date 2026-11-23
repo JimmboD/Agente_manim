@@ -400,6 +400,7 @@ function initEditor() {
       theme: 'manim',
       lineNumbers: true,
       lineWrapping: false,
+      gutters: ['CodeMirror-linenumbers', 'proposal-gutter'],
       indentUnit: 4,
       tabSize: 4,
       matchBrackets: true,
@@ -1409,6 +1410,18 @@ function initTemplatesModal() {
       if (!templateId) return;
 
       try {
+        if (templateId === 'pasos_algebraicos') {
+          appendTerminalLine('info', 'Desplegando el bundle de pasos algebraicos en el proyecto...');
+          if (!window.Studio || typeof window.Studio.deployTemplate !== 'function') {
+            throw new Error('El estudio no está listo para desplegar plantillas.');
+          }
+          const deployed = await window.Studio.deployTemplate(templateId);
+          if (!deployed) return;
+          closeModal();
+          switchView('view-studio');
+          return;
+        }
+
         appendTerminalLine('info', `Cargando plantilla "${templateId}" desde la carpeta de Plantillas...`);
         const res = await fetch(`/api/get_template?id=${encodeURIComponent(templateId)}`);
         if (!res.ok) {
@@ -1418,16 +1431,6 @@ function initTemplatesModal() {
         const data = await res.json();
         if (data.status !== 'success' || !data.code) {
           throw new Error(data.error || 'No se recibió código de la plantilla');
-        }
-
-        if (templateId === 'pasos_algebraicos') {
-          closeModal();
-          switchView('view-studio');
-          if (window.Studio && typeof window.Studio.loadTemplateCode === 'function') {
-            window.Studio.loadTemplateCode(data.code, 'escenas/pasos_algebraicos.txt');
-          }
-          appendTerminalLine('system', `Plantilla especial "Pasos algebráicos" cargada desde ${data.path}. Editando pasos_algebraicos.txt.`);
-          return;
         }
 
         closeModal();
