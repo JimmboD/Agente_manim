@@ -1,13 +1,14 @@
-# Editor de escenas
+# Estudio de escenas
 
-Manim Studio trabaja en un único modo principal, **Estudio**. El archivo `.py`
-abierto es la fuente de verdad: se edita directamente, `Ctrl+S` lo guarda y el
-asistente solo propone cambios que el usuario revisa como diff antes de aplicar.
-La previsualización se actualiza mientras se trabaja.
+Manim Studio trabaja en un único modo principal, **Estudio**. Cada proyecto es
+una carpeta física en `var/proyectos/<slug>/` con su propia carpeta `escenas/`.
+El archivo `.py` abierto es la fuente de verdad: se edita directamente,
+`Ctrl+S` lo guarda y el asistente solo propone cambios que el usuario revisa
+como diff antes de aplicar. La previsualización se actualiza mientras se
+trabaja.
 
-El antiguo editor de IR permanece como **vista auxiliar**: se abre con el botón
-**IR** situado sobre el editor. Las vistas de Scratch y Shorts ya no aparecen en
-la navegación, pero su código se ha conservado en el proyecto.
+No hay botón **IR** ni vista de editor de IR: los módulos de IR siguen en el
+backend, pero no forman parte de la interfaz.
 
 ## Cómo arrancar
 
@@ -20,14 +21,19 @@ También funciona con `.\.venv\Scripts\python.exe scripts\iniciar.py` o, desde u
 entorno con el paquete instalado, `manim-studio`.
 
 Abre `http://127.0.0.1:5000/`. La vista **Estudio** está activa por defecto; el
-panel lateral solo muestra **Estudio**, **Ajustes** y **Documentación**, además
-del botón **Apagar servidor**.
+panel lateral solo muestra **Estudio** y **Ajustes y documentación**, además del
+botón **Apagar servidor**.
 
+- Proyectos: `var/proyectos/<slug>/escenas/`.
+- Proyecto activo: `var/data/active_project`.
+- Plantillas de usuario: `var/plantillas/`; plantillas del sistema:
+  `src/manim_studio/motor/plantillas/`.
+- Ajustes: `var/data/settings.json`.
 - Base de datos: `var/data/editor.db` (SQLite, WAL).
 - Token de sesión: `var/data/session_token` (se crea al primer arranque).
 - Medios de cada job: `var/media/editor/<job_id>/`.
-- Audios subidos: `var/audios/` (ignorado por Git; no se versionan MP3).
-- Todos esos directorios están ignorados por Git.
+- Audios subidos: `var/audios/` (no se versionan MP3).
+- Todo lo anterior bajo `var/` está ignorado por Git.
 
 Los botones **Detener** (junto a *Ejecutar*) y **Apagar servidor** (panel lateral
 → *Sesión del servidor*) permiten cortar el render en curso y terminar el proceso
@@ -40,24 +46,32 @@ Para usar un modelo real, copia `.env.example` a `.env` y rellena la clave. Sin
 
 ### Interfaz
 
-- **Carril de plantillas**: busca, carga, crea una desde el código actual y
-  marca favoritas. Las plantillas existentes se sugieren por nombre.
-- **Árbol de archivos**: explora `escenas/`, `mis-plantillas/` y `audios/`; abre,
-  crea, mueve, borra y sube audios. `plantillas/` y `media/` son de solo lectura.
-- **Editor + Ejecutar/Detener**: el botón guarda antes de lanzar el `.py` abierto.
-- **Salida visual**: reproduce el MP4 generado y ofrece descarga, reinicio y
-  exportación con audio.
-- **Consola**: logs SSE del motor. La franja superior indica si hay cambios
-  guardados o sin guardar y permite forzar el guardado.
+- **Sidebar izquierda**: carrusel de proyectos (crear desde un título,
+  seleccionar y borrar), pestañas **Archivos** y **Plantillas**, y botones como
+  iconos estilo VS Code: nuevo archivo, nueva carpeta, mover/renombrar, borrar,
+  subir audio y actualizar.
+- **Árbol «Proyecto»**: archivos del proyecto activo. El usuario los añade y
+  quita desde la sidebar; son documentos del proyecto, no plantillas.
+- **Panel de herramientas**: una sola ventana con pestañas **Editor**,
+  **Agente** y **Audio**.
+- **Consola**: franja fija abajo con los logs SSE; la franja superior indica si
+  hay cambios guardados o sin guardar y permite forzar el guardado.
+- **Vista previa**: columna de la derecha; reproduce el MP4 generado y ofrece
+  descarga, reinicio y exportación con audio.
+- **Editor + Ejecutar/Detener**: *Ejecutar* guarda antes de lanzar el `.py`
+  abierto con la calidad y el formato activos.
 - **Chat de código**: el asistente devuelve una propuesta con diff; **Aplicar**
   la escribe en disco y **Descartar** la descarta. Nada se guarda sin revisión.
-- **Ajustes**: color libre con presets, calidad (`480p`, `720p`, `1080p`) y
-  formato (`16:9`, `9:16`, `1:1`).
+- **Ajustes**: color libre con presets, calidad (`480p`, `720p`, `1080p`),
+  formato (`16:9`, `9:16`, `1:1`), la casilla «Desbloquear edición de las
+  plantillas originales» y la documentación técnica integrada.
 
 ### Flujo
 
 1. `GET /api/workspace/files/tree` y `GET /api/workspace/files/read?path=...`
-   alimentan el árbol y el editor. La lectura devuelve `code` y `sha256`.
+   alimentan el árbol y el editor. La raíz pública `escenas` se muestra como
+   «Proyecto» y apunta a `var/proyectos/<slug>/escenas/` del proyecto activo.
+   La lectura devuelve `code` y `sha256`.
 2. `Ctrl+S` usa `POST /api/workspace/files/write` con el `sha256` leído. Si el
    archivo cambió en disco mientras se editaba, la respuesta es `409` en lugar
    de sobrescribirlo.
@@ -66,84 +80,65 @@ Para usar un modelo real, copia `.env.example` a `.env` y rellena la clave. Sin
    El servidor valida la sintaxis con `ast.parse` y calcula el diff unificado.
 4. `POST /api/workspace/code/apply` vuelve a validar `sha256` antes de escribir.
    Solo se ejecuta cuando el usuario pulsa **Aplicar**.
-5. `POST /api/run_main` ejecuta el archivo abierto (o el canónico
-   `escenas/main.py`) con `MANIM_QUALITY` y `MANIM_FORMAT`; los logs llegan por
-   SSE y el render se puede cancelar.
+5. `POST /api/run_main` toma como fuente de verdad la ruta `path` del archivo
+   abierto. Debe ser un `.py` existente dentro de la carpeta **Proyecto** del
+   proyecto activo; si no, responde `400` sin caer a `main.py`. La terminal
+   muestra la ruta resuelta. Las llamadas heredadas que no envían `path` (Short)
+   conservan su comportamiento con `code`/`file`.
 6. `GET /api/workspace/templates` lista las plantillas. `POST
-   /api/workspace/templates` crea una desde el código actual; la estrella es una
-   preferencia local del navegador.
+   /api/workspace/templates` crea una con el código abierto en
+   `var/plantillas/`; la estrella es una preferencia local del navegador. Las
+   plantillas del sistema son de solo lectura salvo que se active el ajuste.
 
 ### API del espacio de trabajo
 
 | Método | Ruta | Uso |
 | --- | --- | --- |
+| `GET` | `/api/workspace/projects` | Proyectos, proyecto activo y ajustes |
+| `POST` | `/api/workspace/projects` | Crea un proyecto desde `title` |
+| `POST` | `/api/workspace/projects/select` | Selecciona un `slug` |
+| `POST` | `/api/workspace/projects/delete` | Borra un `slug` |
+| `GET` | `/api/workspace/settings` | Ajustes persistidos |
+| `POST` | `/api/workspace/settings` | Actualiza `unlockSystemTemplates` |
 | `GET` | `/api/workspace/files/tree` | Raíces y nodos del árbol de archivos |
 | `GET` | `/api/workspace/files/read?path=...` | Código y `sha256` de un archivo |
 | `POST` | `/api/workspace/files/write` | Escribe con control de `sha256` |
 | `POST` | `/api/workspace/files/create` | Crea archivo o carpeta |
 | `POST` | `/api/workspace/files/move` | Mueve o renombra |
-| `POST` | `/api/workspace/files/delete` | Elimina (solo raíces editables) |
-| `POST` | `/api/workspace/files/upload` | Sube un audio a `audios/` |
+| `POST` | `/api/workspace/files/delete` | Elimina archivos o carpetas editables |
+| `POST` | `/api/workspace/files/upload` | Sube un audio a `var/audios/` |
 | `GET` | `/api/workspace/templates` | Plantillas del sistema y del usuario |
-| `POST` | `/api/workspace/templates` | Crea una plantilla desde código |
+| `POST` | `/api/workspace/templates` | Crea una plantilla con el código abierto |
 | `POST` | `/api/workspace/code/propose` | Propone código + diff, sin guardar |
 | `POST` | `/api/workspace/code/apply` | Aplica una propuesta ya revisada |
+| `POST` | `/api/run_main` | Ejecuta la ruta `path` validada del proyecto activo |
 
-Todas estas rutas mutantes exigen `X-Session-Token` y un `Origin` local.
+En la API, `mis-plantillas` es la raíz pública de `var/plantillas/` y
+`escenas` la del proyecto activo.
 
-## Vista auxiliar de IR
+Todas las rutas mutantes exigen `X-Session-Token` y un `Origin` local.
 
-1. El IR (`src/manim_studio/editor/ir.py`) valida función, dominio, intervalo,
-   tolerancia, iteraciones, ritmo (beats), layout y narración. La expresión
-   Python se analiza con `ast` y solo admite una lista blanca de nombres y
-   funciones matemáticas.
-2. `src/manim_studio/editor/codegen.py` genera un script delgado que incrusta el
-   IR y llama a `src/manim_studio/editor/scenes/biseccion.py`. En esta vista el
-   modelo solo propone parches sobre el IR; el código se regenera de forma
-   determinista en el servidor.
-3. `POST /api/editor/scenes/{id}/chat` devuelve `{reply, summary, patch,
-   code_diff, base_revision, proposal_id}` y **no guarda ni renderiza**. El
-   frontend muestra el diff y ofrece **Aplicar**, **Descartar** y **Deshacer**.
-4. `POST /api/editor/scenes/{id}/apply` exige `base_revision`. Si la escena
-   cambió mientras se revisaba la propuesta, responde `409`; un parche inválido
-   responde `422`. Solo entonces se incrementa `revision`, se regenera el código
-   y se encola el render.
-5. `src/manim_studio/editor/jobs.py` crea un subproceso con su propio
-   `MANIM_MEDIA_DIR`, guarda logs y estado en la tabla `renders` y permite
-   cancelación.
+## Backend de IR (sin interfaz)
 
-### API del editor de IR
-
-| Método | Ruta | Uso |
-| --- | --- | --- |
-| `GET` | `/api/editor/bootstrap` | Proyectos, formatos, calidades, token e IR por defecto |
-| `GET` | `/api/editor/projects` | Lista de proyectos |
-| `GET` | `/api/editor/projects/{id}` | Proyecto y sus escenas |
-| `POST` | `/api/editor/projects` | Crea proyecto + escena inicial |
-| `POST` | `/api/editor/projects/{id}/scenes` | Añade una escena |
-| `GET` | `/api/editor/scenes/{id}` | Escena con IR, código, revisión y último render |
-| `PUT` | `/api/editor/scenes/{id}` | Guarda IR/título y regenera código |
-| `GET` | `/api/editor/scenes/{id}/renders` | Historial de renders |
-| `GET` | `/api/editor/scenes/{id}/chat` | Historial de conversación |
-| `POST` | `/api/editor/scenes/{id}/chat` | Pide una propuesta (no modifica la escena) |
-| `POST` | `/api/editor/scenes/{id}/apply` | Aplica parche o IR con control de revisión |
-| `POST` | `/api/editor/scenes/{id}/render` | Encola un job (`format`, `quality`) |
-| `GET` | `/api/editor/jobs/{id}` | Estado, logs y URL del video |
-| `POST` | `/api/editor/jobs/{id}/cancel` | Cancela el render |
+Los módulos `src/manim_studio/editor/ir.py`, `codegen.py` y `api.py` siguen en el
+repositorio, pero no hay vista de editor de IR, botón **IR** ni panel IR. El IR
+no forma parte del flujo del Estudio ni se expone en la navegación.
 
 ## Seguridad local
 
 - Toda petición mutante exige `X-Session-Token` (comparación en tiempo
-  constante). El token se entrega en `/bootstrap`, que no es legible desde
-  otros orígenes.
+  constante). El token se entrega en `/api/editor/bootstrap`, que no es legible
+  desde otros orígenes.
 - `Origin` se valida contra `127.0.0.1`, `localhost` y `[::1]` en el puerto
   activo; no se emite CORS comodín.
 - Las rutas del espacio de trabajo se resuelven dentro de raíces permitidas
-  (`escenas`, `plantillas`, `mis-plantillas`, `audios`, `media`) y pasan por
-  `safe_join`, que rechaza `..` con `/` y con `\`.
+  (`escenas` → proyecto activo, `plantillas`, `mis-plantillas`, `audios`,
+  `media`) y pasan por `safe_join`, que rechaza `..` con `/` y con `\`.
+- `/api/run_main` solo acepta archivos `.py` existentes dentro de la carpeta
+  **Proyecto**; cualquier otra ruta se rechaza con `400`.
 - Subidas de audio limitadas por extensión y tamaño; los MP3 no se versionan.
-- Los mensajes del chat se guardan en SQLite; la clave del proveedor LLM no se
-  expone nunca al frontend.
+- El historial de la conversación del Estudio se envía al servidor en `history`;
+  la clave del proveedor LLM no se expone nunca al frontend.
 - **Acceso local ahora, remoto después**: el servidor escucha en `127.0.0.1` y
   no está preparado para exponerse a Internet sin autenticación y HTTPS.
 
@@ -161,11 +156,14 @@ y se guarda en `localStorage`, junto con el tema y el formato.
 El sistema visual «Pizarra Analítica» se reparte en:
 
 - `src/manim_studio/web/tokens.css`: tipografías, espaciado y colores.
-- `src/manim_studio/web/components.css`: botones, campos, paneles y vista IR.
-- `src/manim_studio/web/index.css`: layout del modo Estudio y responsive.
+- `src/manim_studio/web/components.css`: botones, campos y paneles.
+- `src/manim_studio/web/index.css`: layout del Estudio (sidebar, panel de
+  pestañas, consola fija y vista previa) y responsive.
 - `src/manim_studio/web/icons.js`: iconos SVG de línea, sin librerías externas.
-- `src/manim_studio/web/app.js`: estado global, navegación, ajustes y ejecución.
-- `src/manim_studio/web/studio.js`: árbol, plantillas, guardado y chat de código.
+- `src/manim_studio/web/app.js`: estado global, navegación, ajustes, ejecución y
+  documentación integrada.
+- `src/manim_studio/web/studio.js`: proyectos, árbol, plantillas, guardado y
+  chat de código.
 - CodeMirror 5 (CDN): editor real del `.py`, con resaltado y números de línea.
   Si los CDN no están disponibles, se usa un `textarea` como fallback.
 
@@ -176,12 +174,12 @@ El sistema visual «Pizarra Analítica» se reparte en:
 .\.venv\Scripts\python.exe -m compileall -q src scripts tests escenas
 node --check src\manim_studio\web\app.js
 node --check src\manim_studio\web\studio.js
-node --check src\manim_studio\web\editor.js
 ```
 
-La suite cubre seguridad de rutas y tokens, validación del IR, generación de
-código, SQLite, proveedores LLM, reparación de parches, conflictos de revisión,
-workspace (árbol/escritura/plantillas) y propuestas de código.
+La suite (69 pruebas) cubre seguridad de rutas y tokens, validación del IR,
+generación de código, SQLite, proveedores LLM, reparación de parches, conflictos
+de revisión, workspace, proyectos físicos, migración, ajustes, resolución
+estricta de la ejecución y propuestas de código.
 
 ## Proveedor LLM
 
@@ -193,14 +191,10 @@ implementaciones:
 - `OpenAICompatibleProvider`: habla `/chat/completions` con OpenAI, DeepSeek,
   OpenRouter u Ollama. `get_provider()` elige el proveedor según `.env`.
 
-Hay dos prompts complementarios:
-
-- `CODE_SYSTEM_PROMPT` en `src/manim_studio/editor/prompts.py`: propuestas de
-  código para el Estudio. Devuelve JSON con `reply`, `summary` y `code`; el
-  servidor valida sintaxis y genera el diff.
-- El prompt de IR de la vista auxiliar exige un JSON con `reply`, `summary` y
-  `patch`, y solo permite tocar `title`, `format`, `function`, `params`,
-  `beats`, `layout` y `narration`.
+El Estudio usa `CODE_SYSTEM_PROMPT` en
+`src/manim_studio/editor/prompts.py`: pide un JSON con `reply`, `summary` y
+`code` completo; el servidor valida la sintaxis, genera el diff y respeta el
+`sha256` del archivo para detectar cambios concurrentes (`409`).
 
 Variables de `.env`:
 
@@ -214,5 +208,5 @@ LLM_MAX_TOKENS=1200
 ```
 
 Si `LLM_PROVIDER` es `ollama`, no hace falta clave. Si no hay clave para los
-demás proveedores, `get_provider()` cae a `MockProvider` y `/bootstrap` lo
-indica en `llm.mock`.
+demás proveedores, `get_provider()` cae a `MockProvider` y `/api/editor/bootstrap`
+lo indica en `llm.mock`.

@@ -9,13 +9,21 @@ y el proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
-- Modo **Estudio** por defecto: editor de código, chat, terminal, vista previa
-  con audio, árbol de archivos y carril de plantillas en una sola ventana.
-- Espacio de trabajo con raíces `escenas`, `plantillas`, `mis-plantillas`,
-  `audios` y `media`; API `/api/workspace/*` para explorar, abrir, crear, mover,
-  borrar y subir audios.
-- Plantillas existentes sugeridas en el carril, creación desde el código actual
-  y favoritos guardados localmente.
+- Modo **Estudio** por defecto: pestañas **Editor**, **Agente** y **Audio** en
+  una sola ventana, consola fija abajo y vista previa a la derecha.
+- Proyectos físicos en `var/proyectos/<slug>/`, cada uno con su carpeta
+  `escenas/`. El proyecto inicial migra byte a byte el contenido heredado de
+  `escenas/main.py` y `escenas/pasos_algebraicos.txt`; `var/` está ignorado por
+  Git.
+- Carrusel de proyectos en la sidebar izquierda: crear desde un título,
+  seleccionar y borrar; los archivos del proyecto se añaden y quitan desde el
+  árbol.
+- Acciones del árbol como iconos estilo VS Code: nuevo archivo, nueva carpeta,
+  mover/renombrar, borrar, subir audio y actualizar.
+- Plantillas de usuario globales en `var/plantillas/`, creadas desde la pestaña
+  **Plantillas**, con favoritos guardados localmente.
+- Ajuste «Desbloquear edición de las plantillas originales», persistido en
+  `var/data/settings.json`.
 - Asistente de código con `CODE_SYSTEM_PROMPT`, propuestas que devuelven código
   completo y diff unificado, validación con `ast.parse` y aplicación solo tras
   confirmación.
@@ -23,30 +31,44 @@ y el proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `16:9`/`9:16`/`1:1`.
 - Indicador de guardado sobre la terminal y control global `Ctrl+S` con
   `sha256` para evitar sobrescrituras concurrentes.
-- Botón **IR** para abrir el editor de escenas como vista auxiliar.
-- Pruebas unitarias para workspace y asistente de código.
+- `tests/test_projects.py` para proyectos, migración, ajustes y resolución
+  estricta de la ejecución; la suite queda en 69 pruebas.
 
 ### Changed
 
-- La navegación lateral se reduce a Estudio, Ajustes y Documentación; Scratch y
-  Shorts salen de la nav pero su código se conserva.
-- El archivo `.py` abierto manda: `Ejecutar` guarda y lanza ese archivo usando la
-  calidad y el formato activos; el IR pasa a ser una vista auxiliar.
-- Documentación de usuario y técnica actualizada al nuevo flujo del Estudio.
+- La navegación lateral se reduce a **Estudio** y **Ajustes y documentación**;
+  Scratch y Shorts salen de la nav pero su código se conserva.
+- La carpeta del árbol que antes se llamaba «Escenas y código» ahora se llama
+  «Proyecto» y apunta al proyecto activo; la ruta pública sigue siendo
+  `escenas/...`.
+- Las plantillas del sistema (`src/manim_studio/motor/plantillas/`) son de solo
+  lectura por defecto y se separan de los documentos del proyecto.
+- `POST /api/run_main` usa como fuente de verdad la ruta `path` del archivo
+  abierto, validada como `.py` dentro de la carpeta Proyecto del proyecto
+  activo. La terminal muestra la ruta resuelta y se conserva la compatibilidad
+  con llamadas heredadas que solo envían `code`.
+- Documentación de usuario y técnica actualizada al flujo del Estudio.
+
+### Removed
+
+- Interfaz y opción de IR: vista de editor de escenas, botón **IR** y panel IR
+  del antiguo `editor.js`. Los módulos de IR siguen existiendo en backend, pero
+  no tienen UI.
+- Vista separada de documentación: `REFERENCIA_TECNICA.md` se visualiza dentro
+  de Ajustes.
 
 ### Fixed
 
 - Se evita el guardado duplicado al pulsar `Ctrl+S` desde CodeMirror.
-- El botón `Ejecutar` usa el archivo abierto y el mensaje de error nombra el
-  script real, no siempre `main.py`.
-- La vista auxiliar IR vuelve a mostrarse cuando se activa desde el Estudio.
+- Ya no se cae silenciosamente a `main.py`: si la ruta de ejecución es inválida,
+  `/api/run_main` responde `400` y el error nombra el motivo.
 - Las rutas de plantillas de usuario se codifican correctamente para nombres con
   acentos o espacios.
 
 ### Security
 
-- Las nuevas rutas `/api/workspace/*` exigen token local y `Origin` de confianza,
-  además de rutas confinadas a las raíces permitidas.
+- Las rutas `/api/workspace/*` exigen token local y `Origin` de confianza,
+  además de rutas confinadas al proyecto activo y a las raíces permitidas.
 
 ## [0.1.0] - 2026-11-22
 

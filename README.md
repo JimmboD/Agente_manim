@@ -1,37 +1,43 @@
 # Manim Studio
 
 Editor local de animaciones matemáticas construido sobre [Manim CE](https://www.manim.community/).
-La interfaz tiene un modo **Estudio** por defecto: el archivo `.py` abierto es
-la fuente de verdad, el asistente propone cambios y el usuario revisa el diff
-antes de aplicarlos. La previsualización se actualiza mientras se trabaja.
-El anterior editor de IR permanece como vista auxiliar (botón **IR** sobre el
-editor).
+La interfaz se abre en el **Estudio**: cada proyecto vive en una carpeta
+`var/proyectos/<slug>/`, el archivo `.py` abierto es la fuente de verdad y el
+usuario revisa el diff antes de aplicar cambios. La previsualización se
+actualiza mientras se trabaja.
 
-> En el modo Estudio el asistente puede proponer código Python completo, pero
-> no lo guarda: el servidor valida la sintaxis y calcula el diff; solo «Aplicar»
-> o `Ctrl+S` escriben en disco. En la vista auxiliar de IR el modelo solo
-> produce parches validados y el código se regenera de forma determinista.
+> El asistente puede proponer código Python completo, pero no lo guarda: el
+> servidor valida la sintaxis y calcula el diff; solo «Aplicar» o `Ctrl+S`
+> escriben en disco. El backend de IR sigue en el repositorio, pero ya no tiene
+> interfaz.
 
 ## Características
 
-- **Modo Estudio**: editor de código, chat, terminal, vista previa con audio,
-  árbol de archivos y carril de plantillas en una sola ventana.
+- **Modo Estudio**: pestañas **Editor**, **Agente** y **Audio** en una sola
+  ventana, consola como franja fija abajo y vista previa a la derecha.
+- **Proyectos físicos**: `var/proyectos/<slug>/escenas/` para cada proyecto; se
+  crean desde un título, se seleccionan y se borran desde la barra lateral.
 - **Flujo híbrido**: edición manual del `.py` o propuesta del asistente, siempre
   con revisión → aplicación. Nada se guarda sin confirmación.
 - **Control de cambios**: si el archivo cambia en disco mientras lo editas, la
   escritura se rechaza con `409` en lugar de sobrescribir tu trabajo.
-- **Archivos y plantillas**: abrir, crear, mover, borrar y subir audios desde el
-  árbol; cargar plantillas existentes, crear una desde el código actual y
-  marcar favoritas.
-- **Ajustes completos**: color libre con presets, calidad `480p`/`720p`/`1080p`
-  y formato `16:9`/`9:16`/`1:1`.
+- **Sidebar unificada**: carrusel de proyectos, pestañas **Archivos** y
+  **Plantillas**, y acciones como iconos estilo VS Code (nuevo archivo, nueva
+  carpeta, mover/renombrar, borrar, subir audio y actualizar).
+- **Plantillas separadas**: las del usuario son globales (`var/plantillas/`) y
+  se crean desde la pestaña **Plantillas**; las del sistema son de solo lectura
+  salvo que se active el ajuste correspondiente.
+- **Ajustes completos**: color libre con presets, calidad `480p`/`720p`/`1080p`,
+  formato `16:9`/`9:16`/`1:1` y opción «Desbloquear edición de las plantillas
+  originales».
 - **Render aislado**: cada previsualización corre en un subproceso con su propio
   `MANIM_MEDIA_DIR`, con logs en vivo por SSE y cancelación explícita.
 - **Tres formatos**: `16:9`, `9:16` y `1:1`, con layouts y encuadre adaptados.
 - **Audio**: sube una grabación, ajusta el offset manualmente y exporta el video
   con la voz integrada.
-- **Persistencia local**: SQLite (`var/data/editor.db`) para proyectos, escenas,
- revisiones, mensajes del chat e historial de renders.
+- **Persistencia local**: proyectos, plantillas de usuario, audios y medios bajo
+  `var/` (ignorado por Git); SQLite (`var/data/editor.db`) para escenas,
+  revisiones e historial de renders.
 - **Seguridad local**: token de sesión, validación de `Origin`, `safe_join` para
   rutas y allowlist en el AST del código generado.
 - **LLM real u local**: proveedor OpenAI-compatible por `.env`, con
@@ -101,16 +107,18 @@ Controles de la sesión:
 
 ```
 src/manim_studio/
-  editor/     IR, validación, codegen, DB, jobs, LLM, API, workspace y asistente de código
-  motor/      planos, álgebra, plantillas y generador de ejercicios
-  web/        interfaz HTML/CSS/JS (Pizarra Analítica, modo Estudio y studio.js)
+  editor/     proyectos, workspace, DB, jobs, LLM, API y asistente de código;
+              módulos de IR heredados sin interfaz
+  motor/      planos, álgebra, plantillas del sistema y generador de ejercicios
+  web/        interfaz HTML/CSS/JS (Pizarra Analítica, app.js y studio.js)
   __init__.py expone ROOT y PAQUETE_DIR
   control.py  lógica de detener render y apagar servidor
   lanzador.py arranque, puerto libre y apertura del navegador
-  servidor.py HTTP local, SSE y endpoints heredados
+  servidor.py HTTP local, SSE y endpoints
 scripts/      iniciar.py / iniciar.bat / iniciar.sh
-escenas/      main.py y pasos_algebraicos.txt (archivos de trabajo)
-var/          data/, media/ y audios/ generados en local (ignorados por Git)
+escenas/      contenido heredado que se copia al proyecto inicial
+var/          proyectos/<slug>/escenas/, plantillas/, data/, media/ y audios/
+              generados en local (ignorados por Git)
 docs/         editor, estilo, prompt del sistema y referencia técnica
 ```
 
@@ -118,33 +126,33 @@ docs/         editor, estilo, prompt del sistema y referencia técnica
 
 ### Modo Estudio (`.py` manda)
 
-1. `GET /api/workspace/files/tree` y `/files/read` alimentan el árbol y el
-   editor. `Ctrl+S` usa `POST /files/write` con el `sha256` leído; un cambio
-   concurrente devuelve `409`.
+1. `GET /api/workspace/files/tree` y `GET /api/workspace/files/read` alimentan
+   el árbol y el editor. `Ctrl+S` usa `POST /api/workspace/files/write` con el
+   `sha256` leído; un cambio concurrente devuelve `409`.
 2. `POST /api/workspace/code/propose` envía mensaje, ruta, código y algo de
    historia. Devuelve `{reply, summary, code, code_diff, path}` sin escribir.
    El frontend muestra el diff y ofrece **Aplicar**/**Descartar**.
 3. `POST /api/workspace/code/apply` revalida el `sha256` y escribe solo tras
    la confirmación del usuario.
-4. `POST /api/run_main` ejecuta el archivo abierto (o el canónico `escenas/main.py`)
-   con `MANIM_QUALITY` y `MANIM_FORMAT`; los logs llegan por SSE.
-5. Las plantillas se listan en `/api/workspace/templates`; «Agregar» crea una
-   desde el código actual y la estrella la marca como favorita (preferencia
-   local del navegador).
+4. `POST /api/run_main` ejecuta la ruta `path` del archivo abierto: debe ser un
+   `.py` existente dentro de la carpeta **Proyecto** del proyecto activo. Una
+   ruta inválida responde `400`, sin caer a `main.py`; la terminal muestra la
+   ruta resuelta. Las llamadas heredadas que solo envían `code`/`file` siguen
+   funcionando para Short. Los logs llegan por SSE.
+5. Las plantillas se listan en `/api/workspace/templates`. Las del sistema
+   (`src/manim_studio/motor/plantillas/`) son de solo lectura; las del usuario
+   viven en `var/plantillas/`, se crean desde la pestaña **Plantillas** y la
+   estrella las marca como favoritas (preferencia local del navegador).
 
-### Vista auxiliar de IR
+### Backend de IR (sin interfaz)
 
-1. `POST /api/editor/scenes/{id}/chat` devuelve
-   `{reply, summary, patch, code_diff, base_revision, proposal_id}` y **no**
-   modifica la escena.
-2. El frontend muestra el diff y ofrece **Aplicar**, **Descartar** y **Deshacer**.
-3. `POST /api/editor/scenes/{id}/apply` exige `base_revision`, valida el parche
-   y solo entonces incrementa la revisión, regenera el código y encola el render.
-4. `GET /api/editor/jobs/{id}` informa del estado; cada cambio cancela el render
-   anterior de la misma escena.
+Los módulos `src/manim_studio/editor/ir.py` y `codegen.py` siguen en el
+repositorio, pero no hay vista de editor de IR, botón **IR** ni panel IR. No
+forman parte del flujo del Estudio.
 
-La API completa está resumida en [`docs/EDITOR.md`](docs/EDITOR.md) y la
-referencia del motor en
+La API del estudio está resumida en [`docs/EDITOR.md`](docs/EDITOR.md). La
+referencia del motor se consulta dentro de **Ajustes y documentación** y también
+está disponible en
 [`docs/REFERENCIA_TECNICA.md`](docs/REFERENCIA_TECNICA.md).
 
 ## Pruebas
@@ -154,12 +162,14 @@ referencia del motor en
 .\.venv\Scripts\python.exe -m compileall -q src tests scripts escenas
 ```
 
-La suite cubre validación del IR, generación de código, control de revisiones,
-proveedores LLM y seguridad de rutas/token.
+La suite (69 pruebas) cubre proyectos físicos, migración del contenido
+heredado, ajustes, resolución estricta de la ejecución, validación del IR,
+generación de código, control de revisiones, proveedores LLM y seguridad de
+rutas/token.
 
 ## Documentación
 
-- [Editor de escenas](docs/EDITOR.md)
+- [Estudio: editor, proyectos y plantillas](docs/EDITOR.md)
 - [Sistema visual «Pizarra Analítica»](docs/ESTILO.md)
 - [Prompt del sistema para Manim](docs/PROMPT_SISTEMA_MANIM.md)
 - [Referencia técnica del motor Manim](docs/REFERENCIA_TECNICA.md)

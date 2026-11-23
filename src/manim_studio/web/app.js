@@ -64,6 +64,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initFormat();
   initEditor();
   initNavigation();
+  initWorkspaceTabs();
   initCollapsibleAccordions();
   initScratchSystem();
   initTemplatesModal();
@@ -266,19 +267,12 @@ function switchView(viewId) {
   const tabLabel = document.getElementById('active-tab-label');
   const titles = {
     'view-studio': 'Estudio',
-    'view-editor': 'Editor de escenas',
     'view-scratch': 'Insertar funciones',
     'view-short': 'Creador de Shorts',
-    'view-settings': 'Ajustes',
-    'view-docs': 'Documentación'
+    'view-settings': 'Ajustes y documentación'
   };
   if (tabLabel && titles[viewId]) {
     tabLabel.textContent = titles[viewId];
-  }
-
-  // El editor de escenas carga su escena la primera vez que se abre.
-  if (viewId === 'view-editor' && window.EditorView) {
-    window.EditorView.activate();
   }
 
   // Activar inicializador o refresco al entrar a view-short
@@ -286,10 +280,37 @@ function switchView(viewId) {
     onEnterShortView();
   }
 
-  // Cargar documentación si se entra en view-docs
-  if (viewId === 'view-docs' && !state.docsLoaded) {
+  // La documentación del sistema vive dentro de Ajustes.
+  if (viewId === 'view-settings' && !state.docsLoaded) {
     loadDocs();
   }
+}
+
+/** Intercambia los paneles Editor / Agente / Audio y los de la barra lateral. */
+function initWorkspaceTabs() {
+  const bindTabs = (selector, paneSelector, attribute) => {
+    const buttons = document.querySelectorAll(`[${selector}]`);
+    if (!buttons.length) return;
+    buttons.forEach((button) => {
+      button.addEventListener('click', () => {
+        const name = button.getAttribute(attribute);
+        buttons.forEach((item) => {
+          const active = item === button;
+          item.classList.toggle('active', active);
+          item.setAttribute('aria-selected', active ? 'true' : 'false');
+        });
+        document.querySelectorAll(`[${paneSelector}]`).forEach((pane) => {
+          pane.classList.toggle('active', pane.getAttribute(paneSelector) === name);
+        });
+        if (window.Studio && typeof window.Studio.onPaneVisible === 'function') {
+          window.Studio.onPaneVisible(name);
+        }
+      });
+    });
+  };
+
+  bindTabs('data-panel-tab', 'data-panel-pane', 'data-panel-tab');
+  bindTabs('data-sidebar-tab', 'data-sidebar-pane', 'data-sidebar-tab');
 }
 
 // ==========================================================================
@@ -538,6 +559,7 @@ async function handleRunMain(customCode = null) {
         file: activeFile,
         quality: state.quality,
         format: state.format,
+        project: (window.Studio && window.Studio.currentProject && window.Studio.currentProject()) || undefined,
         path: (window.Studio && window.Studio.currentPath && window.Studio.currentPath()) || `escenas/${activeFile}`
       })
     });
@@ -545,6 +567,11 @@ async function handleRunMain(customCode = null) {
     if (!res.ok) {
       const err = await res.json();
       throw new Error(err.error || 'Fallo al iniciar ejecución');
+    }
+
+    const started = await res.json().catch(() => ({}));
+    if (started.script) {
+      appendTerminalLine('system', `Archivo resuelto para la ejecución: ${started.script}`);
     }
 
     state.isDirty = false;
@@ -1783,10 +1810,6 @@ function initEventListeners() {
   // Botón Ejecutar sobre el editor
   const btnRun = document.getElementById('btn-run');
   if (btnRun) btnRun.addEventListener('click', () => handleRunMain());
-
-  // El botón IR abre la vista auxiliar del editor de escenas.
-  const btnOpenIr = document.getElementById('btn-open-ir');
-  if (btnOpenIr) btnOpenIr.addEventListener('click', () => switchView('view-editor'));
 
   // Controles de parada y apagado del servidor local
   const btnStop = document.getElementById('btn-stop');

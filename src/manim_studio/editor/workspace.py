@@ -18,6 +18,7 @@ from datetime import datetime, timezone
 from urllib.parse import quote
 from pathlib import Path, PurePosixPath
 
+from manim_studio.editor import projects
 from manim_studio.editor.config import (
     AUDIO_DIR,
     ALLOWED_AUDIO_EXTENSIONS,
@@ -34,18 +35,33 @@ TEXT_EXTENSIONS = {".py", ".txt", ".md", ".json", ".toml", ".cfg", ".ini"}
 IGNORED_DIRS = {"__pycache__", ".git", ".venv", "node_modules"}
 
 USER_TEMPLATES_DIR = VAR_DIR / "plantillas"
-PROTECTED_FILES = {
-    (ESCENAS_DIR / "main.py").resolve(),
-    (ESCENAS_DIR / "pasos_algebraicos.txt").resolve(),
-}
+# Los archivos del proyecto son propiedad del usuario: se pueden añadir,
+# renombrar y borrar desde el árbol.
+PROTECTED_FILES: set[Path] = set()
 
-# (raíz, editable) tal como se muestra en el árbol del frontend.
+# (raíz, editable) tal como se muestra en el árbol del frontend. La entrada
+# `escenas` se reapunta al proyecto activo mediante `set_project()`.
 ROOTS: dict[str, tuple[Path, bool]] = {
     "escenas": (ESCENAS_DIR, True),
     "plantillas": (PLANTILLAS_DIR, False),
     "mis-plantillas": (USER_TEMPLATES_DIR, True),
     "audios": (AUDIO_DIR, True),
     "media": (MEDIA_DIR, False),
+}
+
+SYSTEM_TEMPLATE_PATHS = {
+    "biseccion": "plantillas/analisis_numerico/Bisección.py",
+    "regla_falsa": "plantillas/analisis_numerico/Regla falsa.py",
+    "newton_raphson": "plantillas/analisis_numerico/Newton-Raphson.py",
+    "derivada_limite": "plantillas/calculo_diferencial/Derivada límite.py",
+    "integral": "plantillas/calculo_diferencial/Integral.py",
+    "serie_taylor": "plantillas/calculo_diferencial/Serie de Taylor.py",
+    "curva_polinomica": "plantillas/algebra_geometria/Curva polinómica.py",
+    "hud_algebra": "plantillas/algebra_geometria/HUD álgebra.py",
+    "pasos_algebraicos": "plantillas/algebra_geometria/Pasos algebráicos.py",
+    "serie_fourier": "plantillas/ecuaciones_diferenciales/Serie de Fourier.py",
+    "purga_ciclo_vida": "plantillas/control_ciclo_vida/Purga ciclo de vida.py",
+    "simplex": "plantillas/investigacion_operaciones/Simplex.py",
 }
 
 BUILTIN_TEMPLATES = [
@@ -88,6 +104,43 @@ def _modified(path: Path) -> str:
         return datetime.fromtimestamp(path.stat().st_mtime, tz=timezone.utc).isoformat()
     except OSError:
         return ""
+
+
+def current_project() -> str:
+    """Slug del proyecto que está usando el workspace en este momento."""
+
+    return projects.active_slug()
+
+
+def set_project(slug: str | None = None) -> str:
+    """Apunta la raíz `escenas` al proyecto indicado (o al activo)."""
+
+    fallback = projects.active_slug()
+    candidate = str(slug).strip() if slug else fallback
+    selected = fallback
+    if candidate:
+        try:
+            if projects.project_dir(candidate).is_dir():
+                selected = candidate
+        except projects.ProjectError:
+            pass
+    base = projects.scenes_dir(selected) if selected else ESCENAS_DIR
+    ROOTS["escenas"] = (base, True)
+    return selected
+
+
+def set_system_templates_unlocked(unlocked: bool) -> bool:
+    settings = projects.update_settings({"unlockSystemTemplates": bool(unlocked)})
+    ROOTS["plantillas"] = (PLANTILLAS_DIR, settings["unlockSystemTemplates"])
+    return settings["unlockSystemTemplates"]
+
+
+def apply_saved_context() -> None:
+    """Carga el proyecto activo y los ajustes persistidos al iniciar."""
+
+    set_project()
+    settings = projects.get_settings()
+    ROOTS["plantillas"] = (PLANTILLAS_DIR, settings["unlockSystemTemplates"])
 
 
 def resolve(relative: str) -> tuple[Path, bool, str]:
@@ -163,8 +216,8 @@ def tree() -> dict:
             {
                 "id": name,
                 "name": {
-                    "escenas": "Escenas y código",
-                    "plantillas": "Plantillas del motor",
+                    "escenas": "Proyecto",
+                    "plantillas": "Plantillas del sistema",
                     "mis-plantillas": "Mis plantillas",
                     "audios": "Audios",
                     "media": "Videos generados",
@@ -306,7 +359,7 @@ def templates() -> dict:
             "name": name,
             "category": category,
             "origin": "motor",
-            "path": f"plantillas/{template_id}",
+            "path": SYSTEM_TEMPLATE_PATHS.get(template_id, f"plantillas/{template_id}"),
             "source": f"/api/get_template?id={template_id}",
         }
         for template_id, name, category in BUILTIN_TEMPLATES

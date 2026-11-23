@@ -6,7 +6,7 @@
  * sincrónica (servidor local) y lo inyecta en peticiones del mismo origen,
  * de modo que app.js ya puede usar endpoints protegidos desde el primer load.
  *
- * Debe cargarse antes que app.js y editor.js.
+ * Debe cargarse antes que app.js y studio.js.
  */
 (function () {
   const nativeFetch = window.fetch.bind(window);

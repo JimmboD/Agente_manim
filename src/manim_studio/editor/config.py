@@ -22,9 +22,12 @@ MEDIA_DIR = VAR_DIR / "media"
 EDITOR_MEDIA_DIR = MEDIA_DIR / "editor"
 AUDIO_DIR = VAR_DIR / "audios"
 DATA_DIR = VAR_DIR / "data"
+PROJECTS_DIR = VAR_DIR / "proyectos"
 DB_PATH = DATA_DIR / "editor.db"
 TOKEN_PATH = DATA_DIR / "session_token"
 
+# Rutas heredadas: se conservan para/scripts antiguos, pero el estudio trabaja
+# dentro de PROJECTS_DIR/<slug>/escenas/.
 ESCENAS_DIR = ROOT / "escenas"
 MAIN_PY_PATH = ESCENAS_DIR / "main.py"
 PASOS_ALGEBRAICOS_PATH = ESCENAS_DIR / "pasos_algebraicos.txt"
@@ -118,5 +121,5 @@ LLM_MAX_TOKENS = int(_env_number("LLM_MAX_TOKENS", 1200, integer=True))
 
 
 def ensure_directories() -> None:
-    for directory in (EDITOR_MEDIA_DIR, AUDIO_DIR, DATA_DIR):
+    for directory in (EDITOR_MEDIA_DIR, AUDIO_DIR, DATA_DIR, PROJECTS_DIR):
         directory.mkdir(parents=True, exist_ok=True)

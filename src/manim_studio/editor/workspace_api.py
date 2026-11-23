@@ -1,10 +1,10 @@
-"""Rutas HTTP del estudio: archivos, plantillas y propuestas de código."""
+"""Rutas HTTP del estudio: proyectos, archivos, plantillas y código."""
 
 from __future__ import annotations
 
 import traceback
 
-from manim_studio.editor import workspace
+from manim_studio.editor import projects, workspace
 from manim_studio.editor.api import ApiError, _read_json, _send_json
 from manim_studio.editor.code_assistant import CodeAssistantError, propose_code_change
 
@@ -23,10 +23,10 @@ class WorkspaceAPI:
             if method == "GET":
                 self._get(handler, rest, query)
             elif method == "POST":
-                self._post(handler, rest, payload)
+                self._post(handler, rest, payload, query)
             else:
                 raise ApiError(405, f"Método no soportado: {method}")
-        except (ApiError, workspace.WorkspaceError, CodeAssistantError) as exc:
+        except (ApiError, workspace.WorkspaceError, CodeAssistantError, projects.ProjectError) as exc:
             status = getattr(exc, "status", 500)
             _send_json(handler, status, {"error": getattr(exc, "message", str(exc))})
         except Exception as exc:
@@ -34,7 +34,30 @@ class WorkspaceAPI:
             _send_json(handler, 500, {"error": f"Error interno: {exc}"})
         return True
 
+    @staticmethod
+    def _project(payload: dict | None = None, query: dict | None = None) -> str:
+        payload = payload or {}
+        query = query or {}
+        from_payload = str(payload.get("project") or "").strip()
+        from_query = str((query.get("project") or [""])[0] or "").strip()
+        return from_payload or from_query or projects.active_slug()
+
     def _get(self, handler, rest: list[str], query: dict) -> None:
+        workspace.set_project(self._project({}, query))
+        if rest == ["projects"]:
+            _send_json(
+                handler,
+                200,
+                {
+                    "projects": projects.list_projects(),
+                    "active": projects.active_slug(),
+                    "settings": projects.get_settings(),
+                },
+            )
+            return
+        if rest == ["settings"]:
+            _send_json(handler, 200, projects.get_settings())
+            return
         if rest == ["files", "tree"]:
             _send_json(handler, 200, workspace.tree())
             return
@@ -47,7 +70,28 @@ class WorkspaceAPI:
             return
         raise ApiError(404, "Ruta de espacio de trabajo no encontrada.")
 
-    def _post(self, handler, rest: list[str], payload: dict) -> None:
+    def _post(self, handler, rest: list[str], payload: dict, query: dict) -> None:
+        workspace.set_project(self._project(payload, query))
+        if rest == ["projects"]:
+            result = projects.create_project(str(payload.get("title", "")))
+            workspace.set_project(result["slug"])
+            _send_json(handler, 201, {"project": result})
+            return
+        if rest == ["projects", "select"]:
+            result = projects.set_active(str(payload.get("slug", "")))
+            workspace.set_project(result["slug"])
+            _send_json(handler, 200, result)
+            return
+        if rest == ["projects", "delete"]:
+            result = projects.delete_project(str(payload.get("slug", "")))
+            workspace.set_project(result["active"])
+            _send_json(handler, 200, result)
+            return
+        if rest == ["settings"]:
+            result = projects.update_settings(payload)
+            workspace.set_system_templates_unlocked(result["unlockSystemTemplates"])
+            _send_json(handler, 200, result)
+            return
         if rest == ["files", "write"]:
             result = workspace.write(
                 str(payload.get("path", "")),

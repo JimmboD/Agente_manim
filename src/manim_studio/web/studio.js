@@ -14,6 +14,9 @@
   let currentSha = null;
   let dirty = false;
   let selectedPath = 'escenas/main.py';
+  let activeProject = '';
+  let projects = [];
+  let settings = { unlockSystemTemplates: false };
   let tree = [];
   let nodeIndex = {};
   let templatesList = [];
@@ -65,9 +68,13 @@
       options.headers['Content-Type'] = 'application/json';
       options.body = JSON.stringify(payload);
     }
+    let target = url;
+    if (activeProject && url.startsWith(API)) {
+      target += `${url.includes('?') ? '&' : '?'}project=${encodeURIComponent(activeProject)}`;
+    }
     let response;
     try {
-      response = await fetch(url, options);
+      response = await fetch(target, options);
     } catch (error) {
       throw new Error(`No se pudo conectar con el servidor: ${error.message}`);
     }
@@ -195,6 +202,126 @@
   }
 
   // ------------------------------------------------------------------------
+  // PROYECTOS FÍSICOS Y AJUSTES
+  // ------------------------------------------------------------------------
+  function confirmProjectSwitch() {
+    if (!dirty) return true;
+    return window.confirm('Tienes cambios sin guardar. ¿Descartarlos y cambiar de proyecto?');
+  }
+
+  function applySettingsUI() {
+    const checkbox = $('check-unlock-system-templates');
+    if (checkbox) checkbox.checked = Boolean(settings.unlockSystemTemplates);
+  }
+
+  async function loadProjects() {
+    try {
+      const data = await api('GET', `${API}/projects`);
+      projects = data.projects || [];
+      activeProject = data.active || (projects[0] && projects[0].slug) || '';
+      settings = data.settings || settings;
+      renderProjects();
+      applySettingsUI();
+      return data;
+    } catch (error) {
+      log('error', `No se pudieron cargar los proyectos: ${error.message}`);
+      return null;
+    }
+  }
+
+  function renderProjects() {
+    if (!dom.projectCarousel) return;
+    dom.projectCarousel.replaceChildren();
+    if (!projects.length) {
+      dom.projectCarousel.appendChild(make('span', 'rail-hint', 'Sin proyectos'));
+      return;
+    }
+    projects.forEach((project) => {
+      const chip = make('button', `project-chip${project.slug === activeProject ? ' active' : ''}`, project.title);
+      chip.type = 'button';
+      chip.title = `${project.title} · ${project.slug}`;
+      chip.addEventListener('click', () => selectProject(project.slug));
+      dom.projectCarousel.appendChild(chip);
+    });
+  }
+
+  async function openProjectMain() {
+    await Promise.all([refreshTree(), refreshTemplates()]);
+    await loadFile('escenas/main.py', { silent: true, force: true });
+  }
+
+  async function selectProject(slug) {
+    if (slug === activeProject || !confirmProjectSwitch()) return;
+    try {
+      const data = await api('POST', `${API}/projects/select`, { slug });
+      activeProject = data.slug;
+      await loadProjects();
+      await openProjectMain();
+      const project = projects.find((item) => item.slug === activeProject);
+      log('system', `Proyecto activo: ${project ? project.title : activeProject}.`);
+    } catch (error) {
+      log('error', `No se pudo seleccionar el proyecto: ${error.message}`);
+    }
+  }
+
+  async function createProject() {
+    if (!confirmProjectSwitch()) return;
+    const title = window.prompt('Título del nuevo proyecto:', '');
+    if (!title || !title.trim()) return;
+    try {
+      const data = await api('POST', `${API}/projects`, { title: title.trim() });
+      activeProject = data.project.slug;
+      await loadProjects();
+      await openProjectMain();
+      log('success', `Proyecto «${data.project.title}» creado en ${data.project.path}.`);
+    } catch (error) {
+      log('error', `No se pudo crear el proyecto: ${error.message}`);
+    }
+  }
+
+  async function deleteProject() {
+    if (!confirmProjectSwitch()) return;
+    const project = projects.find((item) => item.slug === activeProject);
+    if (!project) return;
+    if (!window.confirm(`¿Eliminar el proyecto «${project.title}» y todos sus archivos?`)) return;
+    try {
+      const data = await api('POST', `${API}/projects/delete`, { slug: activeProject });
+      activeProject = data.active;
+      await loadProjects();
+      await openProjectMain();
+      log('warning', `Proyecto «${project.title}» eliminado.`);
+    } catch (error) {
+      log('error', `No se pudo eliminar el proyecto: ${error.message}`);
+    }
+  }
+
+  async function changeSystemTemplateSetting(unlocked) {
+    try {
+      settings = await api('POST', `${API}/settings`, { unlockSystemTemplates: unlocked });
+      applySettingsUI();
+      await Promise.all([refreshTree(), refreshTemplates()]);
+      log(
+        unlocked ? 'warning' : 'system',
+        unlocked
+          ? 'Edición de plantillas del sistema desbloqueada.'
+          : 'Plantillas del sistema devueltas a solo lectura.'
+      );
+    } catch (error) {
+      applySettingsUI();
+      log('error', `No se pudo actualizar el ajuste: ${error.message}`);
+    }
+  }
+
+  /** Refresca lo necesario al mostrar una pestaña del panel o de la barra. */
+  function onPaneVisible(name) {
+    if (name === 'files') refreshTree();
+    if (name === 'templates') refreshTemplates();
+    if (name === 'editor' && mainCodeMirror && typeof mainCodeMirror.refresh === 'function') {
+      window.setTimeout(() => mainCodeMirror.refresh(), 0);
+    }
+  }
+
+  // ------------------------------------------------------------------------
   // ÁRBOL DE ARCHIVOS
   // ------------------------------------------------------------------------
   function renderNode(node, depth) {
@@ -253,7 +380,9 @@
 
   function renderTree(data) {
     if (!dom.treeList) return;
-    tree = data.roots || [];
+    // Las plantillas viven en su propia pestaña: aquí sólo se muestran los
+    // documentos del proyecto y los recursos globales del estudio.
+    tree = (data.roots || []).filter((root) => ['escenas', 'audios'].includes(root.id));
     nodeIndex = {};
     dom.treeList.replaceChildren();
     tree.forEach((root) => {
@@ -438,7 +567,10 @@
 
   async function loadTemplate(template) {
     try {
-      const response = await fetch(template.source);
+      const separator = template.source.includes('?') ? '&' : '?';
+      const response = await fetch(
+        `${template.source}${separator}project=${encodeURIComponent(activeProject)}`
+      );
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const data = await response.json();
       const code = data.code;
@@ -561,6 +693,13 @@
   // INICIALIZACIÓN
   // ------------------------------------------------------------------------
   function bind() {
+    if (dom.newProject) dom.newProject.addEventListener('click', createProject);
+    if (dom.deleteProject) dom.deleteProject.addEventListener('click', deleteProject);
+    if (dom.unlockTemplates) {
+      dom.unlockTemplates.addEventListener('change', (event) => {
+        changeSystemTemplateSetting(event.target.checked);
+      });
+    }
     if (dom.refreshTree) dom.refreshTree.addEventListener('click', () => refreshTree());
     if (dom.newFile) dom.newFile.addEventListener('click', () => createNode('file'));
     if (dom.newFolder) dom.newFolder.addEventListener('click', () => createNode('folder'));
@@ -606,8 +745,12 @@
     if (dom.chatDiscard) dom.chatDiscard.addEventListener('click', clearProposal);
   }
 
-  function init() {
+  async function init() {
     dom = {
+      projectCarousel: $('project-carousel'),
+      newProject: $('btn-new-project'),
+      deleteProject: $('btn-delete-project'),
+      unlockTemplates: $('check-unlock-system-templates'),
       treeList: $('file-tree-list'),
       refreshTree: $('btn-refresh-tree'),
       newFile: $('btn-new-file'),
@@ -640,14 +783,14 @@
     if (!dom.treeList) return;
     bind();
     markSaved();
-    refreshTree();
-    refreshTemplates();
-    loadFile(currentPath, { silent: true }).catch(() => {});
+    await loadProjects();
+    await openProjectMain();
   }
 
   window.Studio = {
     currentPath: () => currentPath,
     currentSha: () => currentSha,
+    currentProject: () => activeProject,
     isDirty: () => dirty,
     loadFile,
     loadTemplateCode,
@@ -656,8 +799,10 @@
     markSaved,
     refreshTree,
     refreshTemplates,
+    loadProjects,
+    onPaneVisible,
   };
 
   // Los scripts se cargan al final del body: el DOM ya existe.
-  init();
+  init().catch((error) => log('error', `No se pudo iniciar el estudio: ${error.message}`));
 })();

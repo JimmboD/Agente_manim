@@ -35,6 +35,7 @@ from manim_studio.editor.config import (
     WEB_DIR,
     ensure_directories,
 )
+from manim_studio.editor import projects, workspace
 from manim_studio.editor.db import Database
 from manim_studio.editor.jobs import JobManager
 from manim_studio.editor.llm import get_provider
@@ -80,6 +81,90 @@ TEMPLATE_MAP = {
     "purga_ciclo_vida": _plantilla("control_ciclo_vida", "Purga ciclo de vida.py"),
     "simplex": _plantilla("investigacion_operaciones", "Simplex.py"),
 }
+
+
+def _project_slug(query=None, payload=None) -> str:
+    """Resuelve el proyecto de una petición sin aceptar slugs inexistentes."""
+
+    candidate = ""
+    if payload:
+        candidate = str(payload.get("project") or "").strip()
+    if not candidate and query:
+        candidate = str((query.get("project") or [""])[0] or "").strip()
+    available = {item["slug"] for item in projects.list_projects()}
+    if candidate in available:
+        return candidate
+    return projects.active_slug()
+
+
+def _main_path(slug=None) -> str:
+    return str(projects.main_py_path(slug or projects.active_slug()))
+
+
+def _pasos_path(slug=None) -> str:
+    return str(projects.pasos_path(slug or projects.active_slug()))
+
+
+def resolve_run_target(payload: dict, query: dict | None = None) -> dict:
+    """Resuelve de forma estricta qué archivo se debe ejecutar.
+
+    La ruta pública ``path`` es la fuente de verdad. Si no viene, se mantiene
+    el comportamiento heredado para llamadas antiguas que sólo envían código.
+    """
+
+    format_id = str(payload.get("format") or "16:9")
+    if format_id not in ("16:9", "9:16", "1:1"):
+        format_id = "16:9"
+    quality = str(payload.get("quality") or "low_quality")
+    if quality not in ("low_quality", "medium_quality", "high_quality"):
+        quality = "low_quality"
+
+    slug = _project_slug(query, payload)
+    workspace.set_project(slug)
+    rel_path = str(payload.get("path") or "").strip()
+    if rel_path:
+        candidate, _writable, root_name = workspace.resolve(rel_path)
+        if root_name != "escenas" or candidate.suffix.lower() != ".py" or not candidate.is_file():
+            raise workspace.WorkspaceError(
+                400, "Solo se pueden ejecutar archivos .py de la carpeta Proyecto."
+            )
+        return {
+            "slug": slug,
+            "path": rel_path,
+            "file": candidate.name,
+            "script": str(candidate),
+            "format": format_id,
+            "quality": quality,
+        }
+
+    # Compatibilidad con llamadas que no envían `path` (Short heredado).
+    target_file = str(payload.get("file") or "main.py")
+    script_path = _main_path(slug)
+    if target_file == "pasos_algebraicos.txt":
+        with open(_pasos_path(slug), "w", encoding="utf-8") as handle:
+            handle.write(str(payload.get("code") or ""))
+        runner_code = (
+            'from manim_studio.motor.planos.generar_plano import AnimadorGrafico\n\n'
+            'if __name__ == "__main__":\n'
+            '    escena = AnimadorGrafico()\n'
+            '    escena.insertar_algebra("pasos_algebraicos.txt", tiempo_animacion=1.5, tiempo_espera=2.0)\n'
+            '    escena.desvanecer_todo(tiempo_animacion=1.5)\n'
+            '    escena.render(previsualizar=True)\n'
+        )
+        with open(script_path, "w", encoding="utf-8") as handle:
+            handle.write(runner_code)
+    elif isinstance(payload.get("code"), str) and payload["code"].strip():
+        with open(script_path, "w", encoding="utf-8") as handle:
+            handle.write(payload["code"])
+    return {
+        "slug": slug,
+        "path": None,
+        "file": target_file,
+        "script": script_path,
+        "format": format_id,
+        "quality": quality,
+    }
+
 
 # Suscriptores de Server-Sent Events (SSE)
 sse_subscribers = []
@@ -428,10 +513,11 @@ class ManimStudioHandler(BaseHTTPRequestHandler):
         if path == "/api/get_main":
             query = parse_qs(parsed.query)
             target_file = query.get("file", ["main.py"])[0]
+            slug = _project_slug(query)
             if target_file == "pasos_algebraicos.txt":
-                file_path = PASOS_ALGEBRAICOS_PATH
+                file_path = _pasos_path(slug)
             else:
-                file_path = MAIN_PY_PATH
+                file_path = _main_path(slug)
 
             self.send_response(200)
             self.send_header("Content-Type", "application/json; charset=utf-8")
@@ -465,7 +551,11 @@ class ManimStudioHandler(BaseHTTPRequestHandler):
             req_file = query.get("file", [""])[0].strip()
 
             file_path = None
-            if template_id in TEMPLATE_MAP:
+            if template_id == "pasos_algebraicos":
+                candidate = _pasos_path(_project_slug(query))
+                if os.path.isfile(candidate):
+                    file_path = candidate
+            if not file_path and template_id in TEMPLATE_MAP:
                 candidate = os.path.normpath(TEMPLATE_MAP[template_id])
                 if os.path.isfile(candidate):
                     file_path = candidate
@@ -705,12 +795,13 @@ class ManimStudioHandler(BaseHTTPRequestHandler):
                 data = json.loads(body.decode("utf-8"))
                 new_code = data.get("code", "")
                 target_file = data.get("file", "main.py")
+                slug = _project_slug(parse_qs(parsed.query), data)
                 if target_file == "pasos_algebraicos.txt":
-                    with open(PASOS_ALGEBRAICOS_PATH, "w", encoding="utf-8") as f:
+                    with open(_pasos_path(slug), "w", encoding="utf-8") as f:
                         f.write(new_code)
                     msg = "pasos_algebraicos.txt guardado con éxito"
                 else:
-                    with open(MAIN_PY_PATH, "w", encoding="utf-8") as f:
+                    with open(_main_path(slug), "w", encoding="utf-8") as f:
                         f.write(new_code)
                     msg = "main.py guardado con éxito"
                 self.send_response(200)
@@ -866,61 +957,30 @@ class ManimStudioHandler(BaseHTTPRequestHandler):
                 self.wfile.write(json.dumps({"error": str(e)}).encode("utf-8"))
             return
 
-        # 2. Ejecutar y transmitir en vivo
+        # 2. Ejecutar y transmitir en vivo. La fuente de verdad es la ruta que
+        # llega en `path`: nunca se cae silenciosamente a main.py.
         if path == "/api/run_main":
-            quality = "low_quality"
-            target_file = "main.py"
-            script_path = MAIN_PY_PATH
-            format_id = "16:9"
             try:
                 data = json.loads(body.decode("utf-8")) if body else {}
-                target_file = data.get("file", "main.py")
-                format_id = str(data.get("format") or "16:9")
-                script_path = str(data.get("path") or MAIN_PY_PATH)
-                if format_id not in ("16:9", "9:16", "1:1"):
-                    format_id = "16:9"
-                # Solo el archivo canónico puede ejecutarse directamente; el resto
-                # de rutas se valida contra escenas/ para no ejecutar código ajeno.
-                if script_path != MAIN_PY_PATH:
-                    try:
-                        from manim_studio.editor.workspace import resolve as resolve_workspace
-
-                        candidate, _, root_name = resolve_workspace(script_path)
-                        is_python = candidate.suffix.lower() == ".py"
-                        script_path = (
-                            str(candidate)
-                            if root_name == "escenas" and is_python and candidate.is_file()
-                            else MAIN_PY_PATH
-                        )
-                    except Exception:
-                        script_path = MAIN_PY_PATH
-                if "code" in data and data["code"] is not None and script_path == MAIN_PY_PATH:
-                    if target_file == "pasos_algebraicos.txt":
-                        with open(PASOS_ALGEBRAICOS_PATH, "w", encoding="utf-8") as f:
-                            f.write(data["code"])
-                        # Garantizamos el runner python que consume pasos_algebraicos.txt
-                        runner_code = (
-                            'from manim_studio.motor.planos.generar_plano import AnimadorGrafico\n\n'
-                            'if __name__ == "__main__":\n'
-                            '    escena = AnimadorGrafico()\n'
-                            '    escena.insertar_algebra("pasos_algebraicos.txt", tiempo_animacion=1.5, tiempo_espera=2.0)\n'
-                            '    escena.desvanecer_todo(tiempo_animacion=1.5)\n'
-                            '    escena.render(previsualizar=True)\n'
-                        )
-                        with open(MAIN_PY_PATH, "w", encoding="utf-8") as f:
-                            f.write(runner_code)
-                    else:
-                        if data["code"].strip():
-                            with open(MAIN_PY_PATH, "w", encoding="utf-8") as f:
-                                f.write(data["code"])
-                if "quality" in data and data["quality"]:
-                    quality = data["quality"]
-            except Exception:
-                pass
+                target = resolve_run_target(data, parse_qs(parsed.query))
+            except workspace.WorkspaceError as exc:
+                self.send_response(exc.status)
+                self.send_header("Content-Type", "application/json; charset=utf-8")
+                self.send_cors_headers()
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": exc.message}).encode("utf-8"))
+                return
+            except Exception as exc:
+                self.send_response(400)
+                self.send_header("Content-Type", "application/json; charset=utf-8")
+                self.send_cors_headers()
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": f"No se pudo preparar la ejecución: {exc}"}).encode("utf-8"))
+                return
 
             threading.Thread(
                 target=run_main_task,
-                args=(quality, script_path, format_id),
+                args=(target["quality"], target["script"], target["format"]),
                 daemon=True,
             ).start()
 
@@ -928,7 +988,14 @@ class ManimStudioHandler(BaseHTTPRequestHandler):
             self.send_header("Content-Type", "application/json; charset=utf-8")
             self.send_cors_headers()
             self.end_headers()
-            self.wfile.write(json.dumps({"status": "started", "message": f"Ejecutando {target_file}...", "file": target_file}).encode("utf-8"))
+            self.wfile.write(json.dumps({
+                "status": "started",
+                "message": f"Ejecutando {target['file']}...",
+                "file": target["file"],
+                "path": target["path"],
+                "project": target["slug"],
+                "script": target["script"],
+            }).encode("utf-8"))
             return
 
         # 1d. Cálculo analítico de tiempos para Short
@@ -994,7 +1061,7 @@ class ManimStudioHandler(BaseHTTPRequestHandler):
                     x_min=x_min, x_max=x_max,
                     tolerancia=tolerancia,
                     save_to_main=save_to_main,
-                    ruta_main=MAIN_PY_PATH
+                    ruta_main=_main_path(_project_slug(parse_qs(parsed.query), data))
                 )
 
                 self.send_response(200)
@@ -1079,7 +1146,7 @@ def run_main_task(quality="low_quality", script_path=None, format_id="16:9"):
         if previous and previous.poll() is None:
             terminate_process_tree(previous)
 
-    script_path = script_path or MAIN_PY_PATH
+    script_path = script_path or _main_path()
     script_name = os.path.basename(script_path)
     broadcast_sse("status", {"state": "rendering", "message": f"Iniciando ejecución de {script_name}..."})
     broadcast_sse("log", {"level": "info", "text": "=========================================================="})
@@ -1141,7 +1208,7 @@ def run_main_task(quality="low_quality", script_path=None, format_id="16:9"):
         elif proc.returncode == 0:
             latest_vid = find_latest_video()
             if latest_vid:
-                broadcast_sse("log", {"level": "success", "text": f"✓ Ejecución exitosa de main.py ({duration}s)"})
+                broadcast_sse("log", {"level": "success", "text": f"✓ Ejecución exitosa de {script_name} ({duration}s)"})
                 broadcast_sse("status", {
                     "state": "success",
                     "message": f"Renderizado exitoso ({duration}s)",
@@ -1155,7 +1222,7 @@ def run_main_task(quality="low_quality", script_path=None, format_id="16:9"):
             broadcast_sse("status", {"state": "error", "message": f"Falló con código {proc.returncode}"})
 
     except Exception as ex:
-        broadcast_sse("log", {"level": "error", "text": f"[Excepción al ejecutar main.py]: {ex}"})
+        broadcast_sse("log", {"level": "error", "text": f"[Excepción al ejecutar {script_name}]: {ex}"})
         broadcast_sse("status", {"state": "error", "message": str(ex)})
     finally:
         with process_lock:
@@ -1167,6 +1234,10 @@ def run_server(port: int = 5000) -> None:
 
     global httpd_instance
     ThreadingHTTPServer.allow_reuse_address = True
+
+    ensure_directories()
+    projects.ensure_initial_project()
+    workspace.apply_saved_context()
 
     while True:
         try:

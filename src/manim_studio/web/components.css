@@ -200,16 +200,8 @@ details > summary::-webkit-details-marker { display: none; }
 details > summary .icon:first-child { margin-right: 8px; }
 
 /* --------------------------------------------------------------------------
-   EDITOR DE ESCENAS — mesa de trabajo de dos columnas
+   Chips y detalles heredados por el panel del agente
    -------------------------------------------------------------------------- */
-
-#view-editor.active {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  padding: var(--space-4);
-  height: 100%;
-}
 
 .ed-workbench .ed-topbar {
   display: flex;
@@ -567,8 +559,7 @@ details > summary .icon:first-child { margin-right: 8px; }
 
 .editor-wrapper .CodeMirror { min-height: 420px; max-height: 60vh; }
 .editor-wrapper .line-numbers { display: none !important; }
-.cm-ready ~ .line-numbers,
-.ed-code-pane .CodeMirror { max-height: 280px; }
+.cm-ready ~ .line-numbers { max-height: 280px; }
 
 /* --------------------------------------------------------------------------
    Ajustes generales de las vistas heredadas
